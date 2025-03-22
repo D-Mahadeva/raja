@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useShop, CartItem as CartItemType, Platform } from '@/context/ShopContext';
-import { Trash2, Plus, Minus } from 'lucide-react';
+import { Trash2, Plus, Minus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface CartItemProps {
@@ -26,7 +26,21 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   
   // If we're filtering by platform and this item is not available, return null
   if (platformFilter && (!priceInfo || !priceInfo.available)) {
-    return null;
+    return (
+      <div className="py-4 flex items-center">
+        <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
+          <img src={product.image || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover opacity-50" />
+        </div>
+        
+        <div className="ml-4 flex-grow">
+          <h3 className="font-medium text-gray-400">{product.name}</h3>
+          <div className="flex items-center text-destructive mt-1">
+            <AlertTriangle size={14} className="mr-1" />
+            <span className="text-sm">Not available on {platformFilter}</span>
+          </div>
+        </div>
+      </div>
+    );
   }
   
   const handleQuantityChange = (newQuantity: number) => {
@@ -38,10 +52,10 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   };
 
   return (
-    <div className="flex items-center border-b border-border/50 py-4 animate-fade-in">
+    <div className="flex items-center py-4">
       {/* Product Image */}
-      <Link to={`/product/${product.id}`} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden">
-        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+      <Link to={`/product/${product.id}`} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
+        <img src={product.image || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover" />
       </Link>
       
       {/* Product Details */}
@@ -50,16 +64,9 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
           <Link to={`/product/${product.id}`}>
             <h3 className="font-medium hover:text-primary transition-colors">{product.name}</h3>
           </Link>
-          
-          {/* Show platform badge if item has a specific platform */}
-          {platform && (
-            <span className={`text-xs platform-badge bg-platform-${platform}/10 platform-${platform}`}>
-              {platform.charAt(0).toUpperCase() + platform.slice(1)}
-            </span>
-          )}
         </div>
         
-        <div className="text-sm text-muted-foreground">{product.unit}</div>
+        <div className="text-sm text-gray-500">{product.unit}</div>
         
         {/* Price and actions row */}
         <div className="flex justify-between items-center mt-2">
@@ -74,7 +81,7 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
           
           {/* Quantity controls */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
               <Button 
                 variant="ghost" 
                 size="icon" 

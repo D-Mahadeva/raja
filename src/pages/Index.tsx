@@ -10,14 +10,14 @@ const Index = () => {
   const { filteredProducts, selectedCategory } = useShop();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       <Header />
       <PlatformSelector />
       <CategoryNav />
       
       <main className="container mx-auto px-4 py-6">
         {/* Category Title */}
-        <div className="mb-6 animate-fade-in">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold">{selectedCategory}</h1>
           <p className="text-muted-foreground mt-1">
             Compare prices across multiple platforms
@@ -26,7 +26,7 @@ const Index = () => {
         
         {/* Products Grid */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 staggered-children">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {filteredProducts.map(product => (
               <ProductCard key={product.id} product={product} />
             ))}
