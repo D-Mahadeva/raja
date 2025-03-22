@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,88 +6,34 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 240 10% 3.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 240 10% 3.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 240 10% 3.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
 
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --radius: 0.75rem;
   }
 }
 
@@ -96,6 +43,146 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
+
+  html {
+    @apply scroll-smooth;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-effect {
+    @apply backdrop-blur-md bg-white/80 border border-white/20 shadow-sm;
+  }
+  
+  .glass-effect-dark {
+    @apply backdrop-blur-md bg-black/10 border border-white/10 shadow-md;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .transition-all-fast {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .transition-all-medium {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
+
+/* Platform-specific brand colors */
+.platform-blinkit {
+  @apply text-platform-blinkit border-platform-blinkit;
+}
+
+.platform-zepto {
+  @apply text-platform-zepto border-platform-zepto;
+}
+
+.platform-swiggy {
+  @apply text-platform-swiggy border-platform-swiggy;
+}
+
+.platform-bigbasket {
+  @apply text-platform-bigbasket border-platform-bigbasket;
+}
+
+.platform-dunzo {
+  @apply text-platform-dunzo border-platform-dunzo;
+}
+
+.bg-platform-blinkit {
+  @apply bg-platform-blinkit text-white;
+}
+
+.bg-platform-zepto {
+  @apply bg-platform-zepto text-white;
+}
+
+.bg-platform-swiggy {
+  @apply bg-platform-swiggy text-white;
+}
+
+.bg-platform-bigbasket {
+  @apply bg-platform-bigbasket text-white;
+}
+
+.bg-platform-dunzo {
+  @apply bg-platform-dunzo text-white;
+}
+
+/* Custom Animations */
+.hover-scale {
+  @apply transition-transform duration-200 hover:scale-[1.03];
+}
+
+.hover-lift {
+  @apply transition-all duration-200 hover:-translate-y-[2px] hover:shadow-md;
+}
+
+.delayed-fade-in {
+  opacity: 0;
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.staggered-children > *:nth-child(1) { animation-delay: 0.1s; }
+.staggered-children > *:nth-child(2) { animation-delay: 0.2s; }
+.staggered-children > *:nth-child(3) { animation-delay: 0.3s; }
+.staggered-children > *:nth-child(4) { animation-delay: 0.4s; }
+.staggered-children > *:nth-child(5) { animation-delay: 0.5s; }
+.staggered-children > *:nth-child(6) { animation-delay: 0.6s; }
+.staggered-children > *:nth-child(7) { animation-delay: 0.7s; }
+.staggered-children > *:nth-child(8) { animation-delay: 0.8s; }
+
+/* Page Transitions */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.page-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Custom Components */
+.product-card {
+  @apply relative bg-white rounded-xl overflow-hidden shadow-sm border border-border/40 hover:shadow-md hover:border-border/60 transition-all duration-200;
+}
+
+.platform-badge {
+  @apply inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.category-button {
+  @apply px-4 py-2 rounded-full bg-secondary hover:bg-secondary/80 font-medium transition-colors;
+}
+
+.category-button.active {
+  @apply bg-primary text-primary-foreground;
 }

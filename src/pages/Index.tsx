@@ -1,12 +1,47 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React from 'react';
+import { useShop } from '@/context/ShopContext';
+import Header from '@/components/Header';
+import PlatformSelector from '@/components/PlatformSelector';
+import CategoryNav from '@/components/CategoryNav';
+import ProductCard from '@/components/ProductCard';
 
 const Index = () => {
+  const { filteredProducts, selectedCategory } = useShop();
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <Header />
+      <PlatformSelector />
+      <CategoryNav />
+      
+      <main className="container mx-auto px-4 py-6">
+        {/* Category Title */}
+        <div className="mb-6 animate-fade-in">
+          <h1 className="text-2xl font-bold">{selectedCategory}</h1>
+          <p className="text-muted-foreground mt-1">
+            Compare prices across multiple platforms
+          </p>
+        </div>
+        
+        {/* Products Grid */}
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 staggered-children">
+            {filteredProducts.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold mb-2">No products found</h2>
+              <p className="text-muted-foreground">
+                Try changing your filters or search term
+              </p>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 };
