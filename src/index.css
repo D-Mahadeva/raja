@@ -85,43 +85,53 @@
 
 /* Platform-specific brand colors */
 .platform-blinkit {
-  @apply text-platform-blinkit border-platform-blinkit;
+  color: theme('colors.platform.blinkit');
+  border-color: theme('colors.platform.blinkit');
 }
 
 .platform-zepto {
-  @apply text-platform-zepto border-platform-zepto;
+  color: theme('colors.platform.zepto');
+  border-color: theme('colors.platform.zepto');
 }
 
 .platform-swiggy {
-  @apply text-platform-swiggy border-platform-swiggy;
+  color: theme('colors.platform.swiggy');
+  border-color: theme('colors.platform.swiggy');
 }
 
 .platform-bigbasket {
-  @apply text-platform-bigbasket border-platform-bigbasket;
+  color: theme('colors.platform.bigbasket');
+  border-color: theme('colors.platform.bigbasket');
 }
 
 .platform-dunzo {
-  @apply text-platform-dunzo border-platform-dunzo;
+  color: theme('colors.platform.dunzo');
+  border-color: theme('colors.platform.dunzo');
 }
 
 .bg-platform-blinkit {
-  @apply bg-platform-blinkit text-white;
+  background-color: theme('colors.platform.blinkit');
+  color: white;
 }
 
 .bg-platform-zepto {
-  @apply bg-platform-zepto text-white;
+  background-color: theme('colors.platform.zepto');
+  color: white;
 }
 
 .bg-platform-swiggy {
-  @apply bg-platform-swiggy text-white;
+  background-color: theme('colors.platform.swiggy');
+  color: white;
 }
 
 .bg-platform-bigbasket {
-  @apply bg-platform-bigbasket text-white;
+  background-color: theme('colors.platform.bigbasket');
+  color: white;
 }
 
 .bg-platform-dunzo {
-  @apply bg-platform-dunzo text-white;
+  background-color: theme('colors.platform.dunzo');
+  color: white;
 }
 
 /* Custom Animations */
