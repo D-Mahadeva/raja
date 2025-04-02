@@ -1,14 +1,23 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "pricewise",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backend": "node runBackend.js",
+    "backend:only": "node server.js",
+    "scrape": "node src/scrapers/index.js",
+    "transform": "node transformData.js",
+    "mock-data": "node generateMockData.js",
+    "match-products": "node productMatcher.js",
+    "start": "concurrently \"npm run backend:only\" \"npm run dev\"",
+    "test-api": "node test-api.js",
+    "check-port": "node check-port.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -44,6 +53,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "concurrently": "^8.2.2",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
     "dotenv": "^16.4.7",
@@ -66,7 +76,6 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
-    "vite_react_shadcn_ts": "file:",
     "zod": "^3.23.8"
   },
   "devDependencies": {
