@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useShop, CartItem as CartItemType, Platform } from '@/context/ShopContext';
 import { Trash2, Plus, Minus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
 
 interface CartItemProps {
   item: CartItemType;
@@ -23,23 +23,34 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   };
   
   const priceInfo = getPriceInfo();
+  const isAvailable = priceInfo && priceInfo.available;
   
-  // If we're filtering by platform and this item is not available, return null
-  if (platformFilter && (!priceInfo || !priceInfo.available)) {
+  // If we're filtering by platform and this item is not available, show as unavailable
+  if (platformFilter && !isAvailable) {
     return (
-      <div className="py-4 flex items-center">
+      <motion.div 
+        className="py-4 flex items-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.7 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
-          <img src={product.image || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover opacity-50" />
+          <img 
+            src={product.image || "/placeholder.svg"} 
+            alt={product.name} 
+            className="w-full h-full object-cover opacity-50"
+          />
         </div>
         
         <div className="ml-4 flex-grow">
           <h3 className="font-medium text-gray-400">{product.name}</h3>
+          <div className="text-sm text-gray-400">{product.unit}</div>
           <div className="flex items-center text-destructive mt-1">
             <AlertTriangle size={14} className="mr-1" />
             <span className="text-sm">Not available on {platformFilter}</span>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
   
@@ -52,7 +63,12 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   };
 
   return (
-    <div className="flex items-center py-4">
+    <motion.div 
+      className="flex items-center py-4"
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+    >
       {/* Product Image */}
       <Link to={`/product/${product.id}`} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
         <img src={product.image || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover" />
@@ -78,6 +94,13 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
               <span className="text-destructive">Not Available</span>
             )}
           </div>
+          
+          {/* Platform tag if viewing with filter and item is from a different platform */}
+          {platformFilter && platform && platformFilter !== platform && (
+            <div className="text-xs px-2 py-0.5 rounded-full bg-gray-100">
+              Originally from {platform}
+            </div>
+          )}
           
           {/* Quantity controls */}
           <div className="flex items-center gap-4">
@@ -115,7 +138,7 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
