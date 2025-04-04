@@ -56,6 +56,9 @@ interface ShopContextType {
   getCartItemCount: () => number;
   getBestPlatformForCart: () => { platform: Platform; total: number } | null;
   clearCart: () => void;
+  saveUserCart: () => Promise<void>;
+  loadUserCart: () => Promise<void>;
+  getConsolidatedTotal: (platform: Platform) => number;
 }
 
 // Platform data
@@ -208,9 +211,14 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Save cart to localStorage when it changes
+  // Save cart to localStorage and server when it changes
   useEffect(() => {
     localStorage.setItem('cart', JSON.stringify(cart));
+    
+    // Also save to server if user is logged in
+    if (localStorage.getItem('auth_token')) {
+      saveUserCart();
+    }
   }, [cart]);
 
   // Filter products based on selected category, platform, and search query
@@ -302,15 +310,24 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const getCartTotal = (platform?: Platform) => {
     return cart.reduce((total, item) => {
-      // If platform is specified, only count items from that platform
-      if (platform && item.platform !== platform) {
-        return total;
-      }
+      // Find the appropriate price based on context
+      let priceInfo;
       
-      // Find the price for this item's platform
-      const priceInfo = item.product.prices.find(p => 
-        p.platform === (item.platform || selectedPlatform)
-      );
+      if (platform) {
+        // If a specific platform is requested, use that platform's price regardless of the item's platform
+        priceInfo = item.product.prices.find(p => p.platform === platform);
+      } else if (item.platform) {
+        // If no platform specified but item has a platform, use item's platform price
+        priceInfo = item.product.prices.find(p => p.platform === item.platform);
+      } else if (selectedPlatform) {
+        // If no item platform but there's a selected platform, use that
+        priceInfo = item.product.prices.find(p => p.platform === selectedPlatform);
+      } else {
+        // Default: find best price
+        priceInfo = item.product.prices
+          .filter(p => p.available)
+          .sort((a, b) => a.price - b.price)[0];
+      }
       
       // Add to total if price is available
       if (priceInfo && priceInfo.available) {
@@ -319,6 +336,114 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return total;
     }, 0);
+  };
+  
+  // Get total by consolidating all items as if they were purchased from a single platform
+  const getConsolidatedTotal = (platform: Platform) => {
+    return cart.reduce((total, item) => {
+      const priceInfo = item.product.prices.find(p => p.platform === platform);
+      if (priceInfo && priceInfo.available) {
+        return total + (priceInfo.price * item.quantity);
+      }
+      return total;
+    }, 0);
+  };
+  
+  // Save cart to server (for logged in users)
+  const saveUserCart = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return; // Not logged in
+    
+    try {
+      const cartData = cart.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        platform: item.platform
+      }));
+      
+      // Try multiple possible API URLs
+      const possibleUrls = [
+        import.meta.env.VITE_API_URL?.replace('/products', '/cart'),
+        'http://localhost:5000/api/cart',
+        'http://192.168.1.35:5000/api/cart',
+        `http://${window.location.hostname}:5000/api/cart`
+      ];
+      
+      let saved = false;
+      for (const url of possibleUrls) {
+        if (!url) continue;
+        
+        try {
+          await axios.post(url, { items: cartData }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          saved = true;
+          break;
+        } catch (err) {
+          console.error(`Failed to save cart to ${url}:`, err);
+        }
+      }
+      
+      if (!saved) {
+        console.error('Failed to save cart to any endpoint');
+      }
+    } catch (error) {
+      console.error('Error saving cart:', error);
+    }
+  };
+  
+  // Load cart from server (for logged in users)
+  const loadUserCart = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return; // Not logged in
+    
+    try {
+      // Try multiple possible API URLs
+      const possibleUrls = [
+        import.meta.env.VITE_API_URL?.replace('/products', '/cart'),
+        'http://localhost:5000/api/cart',
+        'http://192.168.1.35:5000/api/cart',
+        `http://${window.location.hostname}:5000/api/cart`
+      ];
+      
+      let response = null;
+      for (const url of possibleUrls) {
+        if (!url) continue;
+        
+        try {
+          response = await axios.get(url, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          console.log(`Successfully loaded cart from ${url}`);
+          break;
+        } catch (err) {
+          console.error(`Failed to load cart from ${url}:`, err);
+        }
+      }
+      
+      if (!response) {
+        console.error('Failed to load cart from any endpoint');
+        return;
+      }
+      
+      // Find the product objects and build cart items
+      const userCart: CartItem[] = [];
+      
+      for (const item of response.data.items) {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          userCart.push({
+            product,
+            quantity: item.quantity,
+            platform: item.platform
+          });
+        }
+      }
+      
+      setCart(userCart);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+    }
   };
 
   const getCartItemCount = () => {
@@ -329,31 +454,52 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (cart.length === 0) return null;
     
     // Calculate total for each platform
-    const platformTotals = platforms.map(platform => {
-      // Check if all cart items are available on this platform
-      const allItemsAvailable = cart.every(item => {
+    const platformStats = platforms.map(platform => {
+      let total = 0;
+      let availableCount = 0;
+      let totalItems = 0;
+      
+      // Calculate totals and check availability
+      cart.forEach(item => {
+        totalItems += 1;
         const priceInfo = item.product.prices.find(p => p.platform === platform.id);
-        return priceInfo && priceInfo.available;
+        
+        if (priceInfo && priceInfo.available) {
+          availableCount += 1;
+          total += priceInfo.price * item.quantity;
+        }
       });
       
-      // If not all items are available, return a very high price
-      if (!allItemsAvailable) {
-        return { platform: platform.id, total: Number.MAX_SAFE_INTEGER };
-      }
-      
-      // Calculate total for this platform
-      const total = cart.reduce((sum, item) => {
-        const priceInfo = item.product.prices.find(p => p.platform === platform.id);
-        return sum + (priceInfo ? priceInfo.price * item.quantity : 0);
-      }, 0);
-      
-      return { platform: platform.id, total };
+      return { 
+        platform: platform.id, 
+        total, 
+        availableCount, 
+        totalItems,
+        availabilityScore: availableCount / totalItems 
+      };
     });
     
-    // Find platform with lowest total
-    return platformTotals.reduce((best, current) => 
-      current.total < best.total ? current : best
-    );
+    // Filter out platforms with no available items
+    const availablePlatforms = platformStats.filter(p => p.availableCount > 0);
+    
+    if (availablePlatforms.length === 0) {
+      return null;
+    }
+    
+    // Sort by availability percentage (at least 80%), then by price
+    availablePlatforms.sort((a, b) => {
+      // First prioritize platforms with at least 80% item availability
+      const aHighAvail = a.availabilityScore >= 0.8;
+      const bHighAvail = b.availabilityScore >= 0.8;
+      
+      if (aHighAvail && !bHighAvail) return -1;
+      if (!aHighAvail && bHighAvail) return 1;
+      
+      // For platforms with similar availability, sort by price
+      return a.total - b.total;
+    });
+    
+    return availablePlatforms[0];
   };
 
   const clearCart = () => {
@@ -381,6 +527,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getCartItemCount,
     getBestPlatformForCart,
     clearCart,
+    saveUserCart,
+    loadUserCart,
+    getConsolidatedTotal
   };
 
   return (
@@ -393,8 +542,10 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // Custom hook to use the shop context
 export const useShop = () => {
   const context = useContext(ShopContext);
+  
   if (context === undefined) {
     throw new Error('useShop must be used within a ShopProvider');
   }
+  
   return context;
 };
