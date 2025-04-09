@@ -49,34 +49,39 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onOpenChange }) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateEmail(email)) {
-      toast({
-        title: "Invalid email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
+  //  within the handleEmailSubmit function:
 
-    setIsChecking(true);
-    
-    try {
-      const exists = await checkUserExists(email);
-      setIsNewUser(!exists);
-      setStep('password');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to check email. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateEmail(email)) {
+    toast({
+      title: "Invalid email",
+      description: "Please enter a valid email address",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsChecking(true);
+  
+  try {
+    console.log('Submitting email:', email);
+    const exists = await checkUserExists(email);
+    console.log('User exists:', exists);
+    setIsNewUser(!exists);
+    setStep('password');
+  } catch (error: any) {
+    console.error('Error during email check:', error);
+    toast({
+      title: "Connection Issue",
+      description: "We're having trouble connecting to our servers. Please try again in a moment.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsChecking(false);
+  }
+};
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

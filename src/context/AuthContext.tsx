@@ -1,3 +1,5 @@
+// src/context/AuthContext.tsx
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useShop } from './ShopContext';
@@ -24,18 +26,75 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper function to get API URL
 const getApiUrl = () => {
+  // Try different possible API URL sources
+  const envApiUrl = import.meta.env.VITE_API_URL?.replace('/products', '');
+  const currentOrigin = window.location.origin;
   const possibleUrls = [
-    import.meta.env.VITE_API_URL?.replace('/products', ''),
+    envApiUrl,
+    `${currentOrigin}/api`,
     'http://localhost:5000/api',
     'http://192.168.1.35:5000/api',
     `http://${window.location.hostname}:5000/api`,
   ];
-
-  for (const url of possibleUrls) {
-    if (url) return url;
-  }
   
-  return 'http://localhost:5000/api';
+  // Filter out undefined/null values
+  return possibleUrls.find(url => url) || 'http://localhost:5000/api';
+};
+
+// Create a robust API client with retries and timeouts
+const createApiClient = () => {
+  const client = axios.create({
+    baseURL: getApiUrl(),
+    timeout: 10000, // 10 second timeout
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  });
+  
+  // Add response interceptor for error handling
+  client.interceptors.response.use(
+    response => response,
+    async error => {
+      // Get original request
+      const originalRequest = error.config;
+      
+      // If we've already tried 3 times, give up
+      if (originalRequest._retry >= 3) {
+        return Promise.reject(error);
+      }
+      
+      // If the error is a network error or a timeout, retry
+      if (error.code === 'ECONNABORTED' || 
+          error.message?.includes('timeout') || 
+          !error.response) {
+        // Increment retry count
+        originalRequest._retry = (originalRequest._retry || 0) + 1;
+        
+        // Wait a bit before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * originalRequest._retry));
+        
+        // Try an alternative URL if we have one
+        if (originalRequest._retry > 1) {
+          const altUrls = [
+            'http://localhost:5000/api',
+            `http://${window.location.hostname}:5000/api`,
+            'http://192.168.1.35:5000/api'
+          ];
+          
+          originalRequest.baseURL = altUrls[originalRequest._retry - 2] || originalRequest.baseURL;
+          console.log(`Retrying with alternative URL: ${originalRequest.baseURL}`);
+        }
+        
+        console.log(`Retrying request (attempt ${originalRequest._retry})`);
+        return client(originalRequest);
+      }
+      
+      return Promise.reject(error);
+    }
+  );
+  
+  return client;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -43,8 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { clearCart, loadUserCart } = useShop();
   
-  // API endpoint base
-  const API_URL = getApiUrl();
+  // Initialize API client
+  const apiClient = React.useMemo(() => createApiClient(), []);
 
   useEffect(() => {
     // Check if user is already logged in (from localStorage token)
@@ -54,16 +113,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (token) {
         try {
           setIsLoading(true);
-          const response = await axios.get(`${API_URL}/users/me`, {
-            headers: {
-              Authorization: `Bearer ${token}`
+          
+          let userResponse = null;
+          
+          // Try different endpoints to verify the token
+          const endpoints = [
+            `${getApiUrl()}/users/me`,
+            'http://localhost:5000/api/users/me',
+            `http://${window.location.hostname}:5000/api/users/me`
+          ];
+          
+          for (const endpoint of endpoints) {
+            try {
+              userResponse = await axios.get(endpoint, {
+                headers: {
+                  Authorization: `Bearer ${token}`
+                },
+                timeout: 5000
+              });
+              
+              if (userResponse.data) {
+                break;
+              }
+            } catch (err) {
+              console.error(`Failed to authenticate with ${endpoint}:`, err);
+              // Continue to next endpoint
             }
-          });
+          }
           
-          setUser(response.data);
-          
-          // Load user's cart from server
-          await loadUserCart();
+          if (userResponse?.data) {
+            setUser(userResponse.data);
+            
+            // Load user's cart from server
+            await loadUserCart();
+          } else {
+            // No valid response from any endpoint
+            localStorage.removeItem('auth_token');
+            setUser(null);
+          }
         } catch (error) {
           console.error('Authentication error:', error);
           localStorage.removeItem('auth_token');
@@ -77,15 +164,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     checkAuth();
-  }, []);
+  }, [loadUserCart]);
   
   // Check if user exists
   const checkUserExists = async (email: string): Promise<boolean> => {
     try {
-      const response = await axios.post(`${API_URL}/users/check`, { email });
-      return response.data.exists;
+      console.log('Checking if user exists:', email);
+      
+      // Try multiple endpoints to check if the user exists
+      const endpoints = [
+        `${getApiUrl()}/users/check`,
+        'http://localhost:5000/api/users/check',
+        `http://${window.location.hostname}:5000/api/users/check`
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          const response = await axios.post(endpoint, 
+            { email }, 
+            {
+              timeout: 5000,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log(`Response from ${endpoint}:`, response.data);
+          return response.data.exists;
+        } catch (err) {
+          console.error(`Failed to check user with ${endpoint}:`, err);
+          // Continue to next endpoint
+        }
+      }
+      
+      // If we've tried all endpoints and still failed, try directly with fetch API
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ email })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            return data.exists;
+          }
+        } catch (err) {
+          console.error(`Fetch API failed with ${endpoint}:`, err);
+          // Continue to next endpoint
+        }
+      }
+      
+      // If all attempts fail, assume this is a new user
+      console.warn('All user check attempts failed, assuming new user');
+      return false;
     } catch (error) {
-      console.error('Error checking user:', error);
+      console.error('Final error checking user:', error);
       throw new Error('Failed to check if user exists');
     }
   };
@@ -93,20 +232,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Login function
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      const response = await axios.post(`${API_URL}/users/login`, { email, password });
+      console.log('Attempting login for:', email);
       
-      // Save token to localStorage
-      localStorage.setItem('auth_token', response.data.token);
+      // Try multiple endpoints for login
+      const endpoints = [
+        `${getApiUrl()}/users/login`,
+        'http://localhost:5000/api/users/login',
+        `http://${window.location.hostname}:5000/api/users/login`
+      ];
       
-      // Update user state
-      setUser(response.data.user);
+      let loginResponse = null;
+      let loginError = null;
       
-      // Load user's cart from server
-      await loadUserCart();
+      for (const endpoint of endpoints) {
+        try {
+          loginResponse = await axios.post(endpoint, 
+            { email, password }, 
+            { 
+              timeout: 5000,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (loginResponse.data && loginResponse.data.token) {
+            break;
+          }
+        } catch (err: any) {
+          console.error(`Login failed with ${endpoint}:`, err);
+          
+          // If we get a 401, don't try other endpoints
+          if (err.response?.status === 401) {
+            loginError = err;
+            break;
+          }
+          
+          loginError = err;
+          // Continue to next endpoint
+        }
+      }
+      
+      // If no successful response, try with fetch API
+      if (!loginResponse) {
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ email, password })
+            });
+            
+            // Check for 401 Unauthorized
+            if (response.status === 401) {
+              throw new Error('Invalid credentials');
+            }
+            
+            if (response.ok) {
+              loginResponse = { data: await response.json() };
+              break;
+            }
+          } catch (err: any) {
+            console.error(`Fetch login failed with ${endpoint}:`, err);
+            loginError = err;
+            
+            // If this is an invalid credentials error, stop trying
+            if (err.message === 'Invalid credentials') {
+              break;
+            }
+            // Continue to next endpoint
+          }
+        }
+      }
+      
+      // Check if we have a successful login
+      if (loginResponse?.data?.token) {
+        // Save token to localStorage
+        localStorage.setItem('auth_token', loginResponse.data.token);
+        
+        // Update user state
+        setUser(loginResponse.data.user);
+        
+        // Load user's cart from server
+        await loadUserCart();
+      } else {
+        // We couldn't log in with any endpoint
+        if (loginError?.response?.status === 401 || 
+            loginError?.message === 'Invalid credentials') {
+          throw new Error('Invalid credentials');
+        } else {
+          throw new Error('Login failed. Please try again.');
+        }
+      }
     } catch (error: any) {
-      if (error.response?.status === 401) {
+      console.error('Login error:', error);
+      
+      if (error.response?.status === 401 || error.message === 'Invalid credentials') {
         throw new Error('Invalid credentials');
       }
+      
       throw new Error('Login failed. Please try again.');
     }
   };
@@ -114,17 +340,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Signup function
   const signup = async (email: string, password: string): Promise<void> => {
     try {
-      const response = await axios.post(`${API_URL}/users/signup`, { email, password });
+      console.log('Attempting signup for:', email);
       
-      // Save token to localStorage
-      localStorage.setItem('auth_token', response.data.token);
+      // Try multiple endpoints for signup
+      const endpoints = [
+        `${getApiUrl()}/users/signup`,
+        'http://localhost:5000/api/users/signup',
+        `http://${window.location.hostname}:5000/api/users/signup`
+      ];
       
-      // Update user state
-      setUser(response.data.user);
+      let signupResponse = null;
+      let signupError = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying signup with endpoint: ${endpoint}`);
+          signupResponse = await axios.post(endpoint, 
+            { email, password }, 
+            { 
+              timeout: 8000,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          console.log(`Signup response from ${endpoint}:`, signupResponse);
+          
+          if (signupResponse.data && signupResponse.data.token) {
+            break;
+          }
+        } catch (err: any) {
+          console.error(`Signup failed with ${endpoint}:`, err);
+          
+          // If we get a 409 (conflict), the email is already in use
+          if (err.response?.status === 409) {
+            signupError = err;
+            break;
+          }
+          
+          signupError = err;
+          // Continue to next endpoint
+        }
+      }
+      
+      // If no successful response, try with fetch API
+      if (!signupResponse) {
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ email, password })
+            });
+            
+            // Check for 409 Conflict (email already exists)
+            if (response.status === 409) {
+              throw new Error('Email already in use');
+            }
+            
+            if (response.ok) {
+              signupResponse = { data: await response.json() };
+              break;
+            }
+          } catch (err: any) {
+            console.error(`Fetch signup failed with ${endpoint}:`, err);
+            signupError = err;
+            
+            // If this is an email already in use error, stop trying
+            if (err.message === 'Email already in use') {
+              break;
+            }
+            // Continue to next endpoint
+          }
+        }
+      }
+      
+      // Check if we have a successful signup
+      if (signupResponse?.data?.token) {
+        // Save token to localStorage
+        localStorage.setItem('auth_token', signupResponse.data.token);
+        
+        // Update user state
+        setUser(signupResponse.data.user);
+      } else {
+        // We couldn't sign up with any endpoint
+        if (signupError?.response?.status === 409 || 
+            signupError?.message === 'Email already in use') {
+          throw new Error('Email already in use');
+        } else {
+          throw new Error('Signup failed. Please try again.');
+        }
+      }
     } catch (error: any) {
-      if (error.response?.status === 409) {
+      console.error('Signup error:', error);
+      
+      if (error.response?.status === 409 || error.message === 'Email already in use') {
         throw new Error('Email already in use');
       }
+      
       throw new Error('Signup failed. Please try again.');
     }
   };
@@ -169,3 +485,5 @@ export const useAuth = () => {
   
   return context;
 };
+
+export default AuthContext;

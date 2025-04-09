@@ -1,3 +1,5 @@
+// src/pages/Index.tsx
+
 import React from 'react';
 import { useShop } from '@/context/ShopContext';
 import Header from '@/components/Header';
@@ -6,6 +8,7 @@ import CategoryNav from '@/components/CategoryNav';
 import ProductCard from '@/components/ProductCard';
 import { AlertCircle, RefreshCcw, PackageSearch, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const LoadingSkeleton = () => (
   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -66,73 +69,116 @@ const Index = () => {
       
       <main className="container mx-auto px-4 py-6">
         {/* Category Title */}
-        <div className="mb-6">
+        <motion.div 
+          className="mb-6"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <h1 className="text-2xl font-bold">{selectedCategory}</h1>
           <p className="text-muted-foreground mt-1">
             Compare prices across multiple platforms
           </p>
-        </div>
+        </motion.div>
         
         {/* Error State */}
-        {error && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertCircle size={20} />
-              <h3 className="font-medium">Error loading products</h3>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-            <div className="flex flex-wrap gap-3 mt-3">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRefresh}
-              >
-                <RefreshCcw size={14} className="mr-2" />
-                Try Again
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleApiTest}
-              >
-                <AlertCircle size={14} className="mr-2" />
-                Test API Connection
-              </Button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle size={20} />
+                <h3 className="font-medium">Error loading products</h3>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+              <div className="flex flex-wrap gap-3 mt-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRefresh}
+                >
+                  <RefreshCcw size={14} className="mr-2" />
+                  Try Again
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleApiTest}
+                >
+                  <AlertCircle size={14} className="mr-2" />
+                  Test API Connection
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Loading State */}
-        {loading && (
-          <div>
-            <div className="flex items-center justify-center mb-6 text-primary">
-              <Loader2 className="h-8 w-8 animate-spin mr-2" />
-              <span>Loading products...</span>
-            </div>
-            <LoadingSkeleton />
-          </div>
-        )}
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-center mb-6 text-primary">
+                <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                <span>Loading products...</span>
+              </div>
+              <LoadingSkeleton />
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Products Grid */}
-        {!loading && !error && filteredProducts.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+        <AnimatePresence>
+          {!loading && !error && filteredProducts.length > 0 && (
+            <motion.div 
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {filteredProducts.map((product, index) => (
+                <motion.div
+                  key={product.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                >
+                  <ProductCard product={product} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* Empty State */}
-        {!loading && !error && filteredProducts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16">
-            <PackageSearch size={48} className="text-muted-foreground mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No products found</h2>
-            <p className="text-muted-foreground text-center max-w-md">
-              Try changing your filters or search term, or check another category.
-            </p>
-          </div>
-        )}
+        <AnimatePresence>
+          {!loading && !error && filteredProducts.length === 0 && (
+            <motion.div 
+              className="flex flex-col items-center justify-center py-16"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.3 }}
+            >
+              <PackageSearch size={48} className="text-muted-foreground mb-4" />
+              <h2 className="text-xl font-semibold mb-2">No products found</h2>
+              <p className="text-muted-foreground text-center max-w-md">
+                Try changing your filters or search term, or check another category.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

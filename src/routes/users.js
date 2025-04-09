@@ -8,6 +8,20 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 const TOKEN_EXPIRY = process.env.TOKEN_EXPIRY || "7d";
 
+// Add CORS headers to all routes in this router
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Handle preflight OPTIONS requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 // Middleware to authorize requests
 export const authenticate = async (req, res, next) => {
   try {
@@ -40,13 +54,19 @@ export const authenticate = async (req, res, next) => {
 // Check if user exists
 router.post("/check", async (req, res) => {
   try {
+    // Add explicit CORS headers for this specific endpoint
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    
     const { email } = req.body;
     
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
     
+    console.log(`Checking if user exists with email: ${email}`);
     const user = await User.findOne({ email });
+    console.log(`User exists: ${!!user}`);
     
     return res.json({ exists: !!user });
   } catch (error) {
@@ -182,6 +202,11 @@ router.put("/password", authenticate, async (req, res) => {
     console.error("Update password error:", error);
     res.status(500).json({ message: "Server error" });
   }
+});
+
+// Health check endpoint
+router.get("/health", (req, res) => {
+  res.json({ status: "Users API is running" });
 });
 
 export default router;

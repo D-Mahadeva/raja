@@ -1,8 +1,10 @@
-
 import React from 'react';
 import { useShop, Product, Platform } from '@/context/ShopContext';
-import { Clock, ShoppingBag, Truck, Check } from 'lucide-react';
+import { Clock, ShoppingBag, Truck, Check, Share2, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProductDetailProps {
   product: Product;
@@ -10,6 +12,7 @@ interface ProductDetailProps {
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   const { addToCart, cart, updateCartItemQuantity } = useShop();
+  const { toast } = useToast();
   
   // Sort prices from lowest to highest
   const sortedPrices = [...product.prices]
@@ -26,41 +29,103 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
     
     if (existingItem) {
       updateCartItemQuantity(product.id, existingItem.quantity + 1, platform);
+      toast({
+        title: "Updated cart",
+        description: `Increased ${product.name} quantity to ${existingItem.quantity + 1}`,
+      });
     } else {
       addToCart(product, platform);
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      });
     }
   };
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
   return (
-    <div className="grid md:grid-cols-2 gap-8">
+    <motion.div 
+      className="grid md:grid-cols-2 gap-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Product Image */}
-      <div className="rounded-lg overflow-hidden border border-border/40 bg-white p-4 aspect-square flex items-center justify-center animate-fade-in">
-        <img 
+      <motion.div 
+        className="rounded-lg overflow-hidden border border-border/40 bg-white p-4 aspect-square flex items-center justify-center animate-fade-in"
+        variants={itemVariants}
+        whileHover={{ scale: 1.02 }}
+        transition={{ duration: 0.3 }}
+      >
+        <motion.img 
           src={product.image} 
           alt={product.name} 
           className="max-w-full max-h-full object-contain"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
         />
-      </div>
+      </motion.div>
       
       {/* Product Info */}
-      <div className="animate-fade-in">
-        <div className="mb-4">
+      <motion.div variants={containerVariants}>
+        <motion.div className="mb-4" variants={itemVariants}>
           <span className="text-sm text-muted-foreground">{product.category}</span>
           <h1 className="text-2xl font-bold mt-1">{product.name}</h1>
           <div className="text-sm mt-1">{product.unit}</div>
-        </div>
+          
+          <div className="flex gap-2 mt-3">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Share product"
+            >
+              <Share2 size={18} />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Add to favorites"
+            >
+              <Heart size={18} />
+            </motion.button>
+          </div>
+        </motion.div>
         
-        <div className="text-sm text-muted-foreground mb-6">
+        <motion.div 
+          className="text-sm text-muted-foreground mb-6"
+          variants={itemVariants}
+        >
           {product.description}
-        </div>
+        </motion.div>
         
         {/* Platform Prices */}
-        <div className="space-y-4 mb-8">
+        <motion.div 
+          className="space-y-4 mb-8" 
+          variants={itemVariants}
+        >
           <h3 className="font-medium">Available on:</h3>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {product.prices.map((price) => (
-              <div 
+              <motion.div 
                 key={price.platform}
                 className={`rounded-lg border ${
                   price.available 
@@ -69,6 +134,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                       : 'border-border/60'
                     : 'border-border/30 bg-muted/30'
                 } p-3`}
+                whileHover={price.available ? { y: -3, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" } : {}}
+                transition={{ type: "spring", stiffness: 300 }}
               >
                 <div className="flex justify-between">
                   <span className={`font-medium ${price.available ? `platform-${price.platform}` : 'text-muted-foreground'}`}>
@@ -76,9 +143,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                   </span>
                   
                   {bestPrice && price.platform === bestPrice.platform && (
-                    <span className="text-xs bg-platform-blinkit/10 platform-blinkit px-2 py-0.5 rounded-full">
+                    <Badge className="bg-platform-blinkit/10 platform-blinkit text-xs">
                       Best Price
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 
@@ -98,35 +165,48 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                   </div>
                   
                   {price.available && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className={`border-platform-${price.platform} platform-${price.platform} hover:bg-platform-${price.platform}/10`}
-                      onClick={() => handleAddToCart(price.platform)}
+                    <motion.div
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <ShoppingBag size={14} className="mr-1" />
-                      Add to Cart
-                    </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className={`border-platform-${price.platform} platform-${price.platform} hover:bg-platform-${price.platform}/10 group`}
+                        onClick={() => handleAddToCart(price.platform)}
+                      >
+                        <ShoppingBag size={14} className="mr-1 group-hover:rotate-12 transition-transform" />
+                        Add to Cart
+                      </Button>
+                    </motion.div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
         
         {/* Additional Information */}
-        <div className="rounded-lg border border-border/60 divide-y divide-border/60">
-          <div className="p-3 flex items-center gap-2.5">
+        <motion.div 
+          className="rounded-lg border border-border/60 divide-y divide-border/60"
+          variants={itemVariants}
+        >
+          <motion.div 
+            className="p-3 flex items-center gap-2.5"
+            whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
+          >
             <Truck size={16} className="text-muted-foreground" />
             <span>Fast delivery, directly from stores to your doorstep</span>
-          </div>
-          <div className="p-3 flex items-center gap-2.5">
+          </motion.div>
+          <motion.div 
+            className="p-3 flex items-center gap-2.5"
+            whileHover={{ backgroundColor: "rgba(0,0,0,0.02)" }}
+          >
             <Check size={16} className="text-muted-foreground" />
             <span>Compare prices across multiple platforms in real-time</span>
-          </div>
-        </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   );
 };
 

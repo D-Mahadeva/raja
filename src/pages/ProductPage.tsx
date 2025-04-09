@@ -4,9 +4,11 @@ import { useShop, Product } from '@/context/ShopContext';
 import Header from '@/components/Header';
 import ProductDetail from '@/components/ProductDetail';
 import ProductCard from '@/components/ProductCard';
-import { ArrowLeft, AlertCircle, RefreshCcw } from 'lucide-react';
+import AddToCartButton from '@/components/AddToCartButton';
+import { ArrowLeft, AlertCircle, RefreshCcw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 
 const ProductDetailSkeleton = () => (
   <div className="grid md:grid-cols-2 gap-8 animate-pulse">
@@ -71,10 +73,23 @@ const ProductPage = () => {
     window.location.reload();
   };
 
+  // Animation variants
+  const pageVariants = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.3 } }
+  };
+
   // Show error state
   if (error) {
     return (
-      <div className="min-h-screen bg-background">
+      <motion.div 
+        className="min-h-screen bg-background"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+      >
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-6">
@@ -101,7 +116,7 @@ const ProductPage = () => {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
@@ -132,10 +147,21 @@ const ProductPage = () => {
   // Product not found
   if (!product) {
     return (
-      <div className="min-h-screen bg-background">
+      <motion.div 
+        className="min-h-screen bg-background"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+      >
         <Header />
         <div className="container mx-auto px-4 py-16">
-          <div className="text-center">
+          <motion.div 
+            className="text-center"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
             <h2 className="text-xl font-semibold mb-2">Product not found</h2>
             <p className="text-muted-foreground mb-6">
               The product you're looking for doesn't exist or has been removed.
@@ -147,44 +173,81 @@ const ProductPage = () => {
               <ArrowLeft size={16} className="mr-1" />
               Back to Home
             </Link>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <motion.div 
+      className="min-h-screen bg-background"
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      variants={pageVariants}
+    >
       <Header />
       
       <main className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
-        <div className="mb-6 animate-fade-in">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link to="/" className="hover:text-foreground">Home</Link>
-            <span>/</span>
-            <Link to="/" className="hover:text-foreground">{product.category}</Link>
-            <span>/</span>
-            <span className="text-foreground">{product.name}</span>
-          </div>
+        <div className="mb-6">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">
+                  <Home size={14} className="mr-1" />
+                  Home
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href={`/?category=${product.category}`}>
+                  {product.category}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{product.name}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
         
         {/* Product Detail */}
         <ProductDetail product={product} />
         
         {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-16">
-            <h2 className="text-xl font-semibold mb-6">Related Products</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 staggered-children">
-              {relatedProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {relatedProducts.length > 0 && (
+            <motion.div 
+              className="mt-16"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.3 }}
+            >
+              <h2 className="text-xl font-semibold mb-6">Related Products</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {relatedProducts.map((product, index) => (
+                  <motion.div 
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.1 }}
+                  >
+                    <ProductCard product={product} />
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
-    </div>
+
+       {/* Floating Add to Cart Button - ADD THIS LINE RIGHT HERE */}
+       {product && <AddToCartButton product={product} />}
+       
+    </motion.div>
   );
 };
 
