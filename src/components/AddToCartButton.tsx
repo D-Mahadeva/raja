@@ -36,7 +36,11 @@ const AddToCartButton: React.FC<AddToCartButtonProps> = ({ product, platform }) 
   const handleAddToCart = () => {
     if (!priceInfo) return;
     
-    addToCart(product, priceInfo.platform);
+    // Create a stable copy of the product to avoid reference issues
+    const stableProduct = JSON.parse(JSON.stringify(product));
+    
+    // Add to cart with the stable product copy and specific platform
+    addToCart(stableProduct, priceInfo.platform);
     
     // Show toast notification
     toast({

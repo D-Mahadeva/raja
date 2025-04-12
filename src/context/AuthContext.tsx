@@ -1,6 +1,6 @@
 // src/context/AuthContext.tsx
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useShop } from './ShopContext';
 
@@ -33,7 +33,6 @@ const getApiUrl = () => {
     envApiUrl,
     `${currentOrigin}/api`,
     'http://localhost:5000/api',
-    'http://192.168.1.35:5000/api',
     `http://${window.location.hostname}:5000/api`,
   ];
   
@@ -78,8 +77,7 @@ const createApiClient = () => {
         if (originalRequest._retry > 1) {
           const altUrls = [
             'http://localhost:5000/api',
-            `http://${window.location.hostname}:5000/api`,
-            'http://192.168.1.35:5000/api'
+            `http://${window.location.hostname}:5000/api`
           ];
           
           originalRequest.baseURL = altUrls[originalRequest._retry - 2] || originalRequest.baseURL;
@@ -102,6 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { clearCart, loadUserCart } = useShop();
   
+  // Use refs to track operational states and prevent race conditions
+  const userRef = useRef<User | null>(null);
+  const isLoadingRef = useRef<boolean>(true);
+  const loginLoadCartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const authCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialAuthCheckRef = useRef<boolean>(true);
+  
   // Initialize API client
   const apiClient = React.useMemo(() => createApiClient(), []);
 
@@ -113,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (token) {
         try {
           setIsLoading(true);
+          isLoadingRef.current = true;
           
           let userResponse = null;
           
@@ -125,14 +131,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           for (const endpoint of endpoints) {
             try {
+              console.log(`Trying to authenticate with ${endpoint}`);
               userResponse = await axios.get(endpoint, {
                 headers: {
                   Authorization: `Bearer ${token}`
                 },
-                timeout: 5000
+                timeout: 8000
               });
               
               if (userResponse.data) {
+                console.log(`Successfully authenticated with ${endpoint}`);
                 break;
               }
             } catch (err) {
@@ -142,28 +150,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           if (userResponse?.data) {
+            console.log('Authentication successful, updating user state');
             setUser(userResponse.data);
+            userRef.current = userResponse.data;
             
-            // Load user's cart from server
-            await loadUserCart();
+            // Load user's cart from server with small delay to ensure products are loaded
+            if (loginLoadCartTimeoutRef.current) {
+              clearTimeout(loginLoadCartTimeoutRef.current);
+            }
+            
+            // Only do this on initial auth check
+            if (isInitialAuthCheckRef.current) {
+              isInitialAuthCheckRef.current = false;
+              
+              loginLoadCartTimeoutRef.current = setTimeout(() => {
+                console.log('Delayed cart load after initial authentication');
+                loadUserCart();
+                loginLoadCartTimeoutRef.current = null;
+              }, 3000); // 3 second delay
+            }
           } else {
             // No valid response from any endpoint
+            console.log('Authentication failed, clearing token');
             localStorage.removeItem('auth_token');
             setUser(null);
+            userRef.current = null;
           }
         } catch (error) {
           console.error('Authentication error:', error);
           localStorage.removeItem('auth_token');
           setUser(null);
+          userRef.current = null;
         } finally {
           setIsLoading(false);
+          isLoadingRef.current = false;
         }
       } else {
         setIsLoading(false);
+        isLoadingRef.current = false;
       }
     };
     
     checkAuth();
+    
+    // Cleanup function to clear any pending timeouts
+    return () => {
+      if (loginLoadCartTimeoutRef.current) {
+        clearTimeout(loginLoadCartTimeoutRef.current);
+      }
+      if (authCheckTimeoutRef.current) {
+        clearTimeout(authCheckTimeoutRef.current);
+      }
+    };
   }, [loadUserCart]);
   
   // Check if user exists
@@ -184,7 +222,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const response = await axios.post(endpoint, 
             { email }, 
             {
-              timeout: 5000,
+              timeout: 8000,
               headers: {
                 'Content-Type': 'application/json'
               }
@@ -246,10 +284,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       for (const endpoint of endpoints) {
         try {
+          console.log(`Trying login with endpoint: ${endpoint}`);
           loginResponse = await axios.post(endpoint, 
             { email, password }, 
             { 
-              timeout: 5000,
+              timeout: 8000,
               headers: {
                 'Content-Type': 'application/json'
               }
@@ -257,6 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           
           if (loginResponse.data && loginResponse.data.token) {
+            console.log(`Login successful with ${endpoint}`);
             break;
           }
         } catch (err: any) {
@@ -292,6 +332,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (response.ok) {
               loginResponse = { data: await response.json() };
+              console.log(`Login successful with fetch API at ${endpoint}`);
               break;
             }
           } catch (err: any) {
@@ -314,9 +355,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Update user state
         setUser(loginResponse.data.user);
+        userRef.current = loginResponse.data.user;
         
-        // Load user's cart from server
-        await loadUserCart();
+        // Load user's cart from server with a proper delay
+        if (loginLoadCartTimeoutRef.current) {
+          clearTimeout(loginLoadCartTimeoutRef.current);
+        }
+        
+        // Use a longer delay to ensure everything is ready
+        loginLoadCartTimeoutRef.current = setTimeout(() => {
+          console.log('Delayed cart load after login');
+          loadUserCart();
+          loginLoadCartTimeoutRef.current = null;
+        }, 3000); // 3 second delay
       } else {
         // We couldn't log in with any endpoint
         if (loginError?.response?.status === 401 || 
@@ -365,7 +416,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           );
           
-          console.log(`Signup response from ${endpoint}:`, signupResponse);
+          console.log(`Signup response from ${endpoint}:`, signupResponse.data);
           
           if (signupResponse.data && signupResponse.data.token) {
             break;
@@ -425,6 +476,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Update user state
         setUser(signupResponse.data.user);
+        userRef.current = signupResponse.data.user;
+        
+        // Don't load cart after signup - it will be empty
       } else {
         // We couldn't sign up with any endpoint
         if (signupError?.response?.status === 409 || 
@@ -448,14 +502,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Logout function
   const logout = async (): Promise<void> => {
     try {
+      // Clear any pending operations
+      if (loginLoadCartTimeoutRef.current) {
+        clearTimeout(loginLoadCartTimeoutRef.current);
+        loginLoadCartTimeoutRef.current = null;
+      }
+      
       // Remove token from localStorage
       localStorage.removeItem('auth_token');
       
       // Clear user state
       setUser(null);
+      userRef.current = null;
       
       // Clear cart
       clearCart();
+      
+      console.log('Logout successful');
     } catch (error) {
       console.error('Logout error:', error);
       throw new Error('Logout failed');

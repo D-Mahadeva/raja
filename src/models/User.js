@@ -9,12 +9,17 @@ const CartItemSchema = new mongoose.Schema({
   quantity: { 
     type: Number, 
     required: true, 
-    default: 1 
+    default: 1,
+    min: [1, 'Quantity must be at least 1'] 
   },
   platform: { 
     type: String, 
     enum: ['blinkit', 'zepto', 'swiggy', 'bigbasket', 'dunzo', null],
     default: null
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
@@ -35,7 +40,9 @@ const UserSchema = new mongoose.Schema({
     default: []
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  // Disable versioning to avoid conflicts
+  versionKey: false
 });
 
 // Hash password before saving
@@ -66,6 +73,24 @@ UserSchema.methods.toJSON = function() {
   delete user.password;
   return user;
 };
+
+// Add timestamp to cart items when updated
+UserSchema.pre('findOneAndUpdate', function(next) {
+  // Check if cart is being updated
+  if (this._update.$set && this._update.$set.cart) {
+    // Add updatedAt timestamp to each cart item
+    this._update.$set.cart.forEach(item => {
+      item.updatedAt = new Date();
+    });
+  }
+  
+  if (this._update.$push && this._update.$push.cart) {
+    // Add updatedAt timestamp to new cart item
+    this._update.$push.cart.updatedAt = new Date();
+  }
+  
+  next();
+});
 
 const User = mongoose.model("User", UserSchema);
 

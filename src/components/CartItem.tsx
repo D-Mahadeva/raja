@@ -14,12 +14,15 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   const { updateCartItemQuantity, removeFromCart } = useShop();
   const { product, quantity, platform } = item;
   
+  // Create stable products to avoid reference issues
+  const stableProduct = React.useMemo(() => JSON.parse(JSON.stringify(product)), [product.id]);
+  
   // Find price for specific platform or the platform of this cart item
   const getPriceInfo = () => {
     const targetPlatform = platformFilter || platform;
     if (!targetPlatform) return null;
     
-    return product.prices.find(p => p.platform === targetPlatform);
+    return stableProduct.prices.find(p => p.platform === targetPlatform);
   };
   
   const priceInfo = getPriceInfo();
@@ -36,15 +39,16 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
       >
         <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
           <img 
-            src={product.image || "/placeholder.svg"} 
-            alt={product.name} 
+            src={stableProduct.image || "/placeholder.svg"} 
+            alt={stableProduct.name} 
             className="w-full h-full object-cover opacity-50"
+            loading="lazy"
           />
         </div>
         
         <div className="ml-4 flex-grow">
-          <h3 className="font-medium text-gray-400">{product.name}</h3>
-          <div className="text-sm text-gray-400">{product.unit}</div>
+          <h3 className="font-medium text-gray-400">{stableProduct.name}</h3>
+          <div className="text-sm text-gray-400">{stableProduct.unit}</div>
           <div className="flex items-center text-destructive mt-1">
             <AlertTriangle size={14} className="mr-1" />
             <span className="text-sm">Not available on {platformFilter}</span>
@@ -55,11 +59,15 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
   }
   
   const handleQuantityChange = (newQuantity: number) => {
-    updateCartItemQuantity(product.id, newQuantity, platform || undefined);
+    if (newQuantity <= 0) {
+      removeFromCart(stableProduct.id, platform || undefined);
+    } else {
+      updateCartItemQuantity(stableProduct.id, newQuantity, platform || undefined);
+    }
   };
   
   const handleRemove = () => {
-    removeFromCart(product.id, platform || undefined);
+    removeFromCart(stableProduct.id, platform || undefined);
   };
 
   return (
@@ -70,19 +78,24 @@ const CartItem: React.FC<CartItemProps> = ({ item, platformFilter }) => {
       transition={{ duration: 0.2 }}
     >
       {/* Product Image */}
-      <Link to={`/product/${product.id}`} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
-        <img src={product.image || "/placeholder.svg"} alt={product.name} className="w-full h-full object-cover" />
+      <Link to={`/product/${stableProduct.id}`} className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200">
+        <img 
+          src={stableProduct.image || "/placeholder.svg"} 
+          alt={stableProduct.name} 
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
       </Link>
       
       {/* Product Details */}
       <div className="ml-4 flex-grow">
         <div className="flex justify-between">
-          <Link to={`/product/${product.id}`}>
-            <h3 className="font-medium hover:text-primary transition-colors">{product.name}</h3>
+          <Link to={`/product/${stableProduct.id}`}>
+            <h3 className="font-medium hover:text-primary transition-colors">{stableProduct.name}</h3>
           </Link>
         </div>
         
-        <div className="text-sm text-gray-500">{product.unit}</div>
+        <div className="text-sm text-gray-500">{stableProduct.unit}</div>
         
         {/* Price and actions row */}
         <div className="flex justify-between items-center mt-2">

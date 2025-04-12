@@ -1,16 +1,19 @@
-import React from 'react';
+// src/components/ProductCard.tsx
+
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useShop, Product, Platform } from '@/context/ShopContext';
 import { Clock, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import OptimizedImage from './OptimizedImage'; // Import the new OptimizedImage component
 
 interface ProductCardProps {
   product: Product;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = memo(({ product }) => {
   const { addToCart, selectedPlatform } = useShop();
   const { toast } = useToast();
   
@@ -58,15 +61,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         whileHover={{ y: -5 }}
         transition={{ type: "spring", stiffness: 300 }}
       >
-        {/* Product Image */}
+        {/* Product Image - Using OptimizedImage */}
         <motion.div 
           className="aspect-square relative overflow-hidden bg-gray-100"
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.2 }}
         >
-          <img 
-            src={product.image || "/placeholder.svg"} 
-            alt={product.name} 
+          <OptimizedImage
+            src={product.image || "/placeholder.svg"}
+            alt={product.name}
             className="object-cover w-full h-full"
           />
         </motion.div>
@@ -113,6 +116,6 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </motion.div>
     </Link>
   );
-};
+});
 
 export default ProductCard;
