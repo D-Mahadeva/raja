@@ -135,51 +135,140 @@ const transformProductData = (apiProducts: any[]): Product[] => {
   });
 };
 
-// Function to fetch data directly using the Fetch API (to bypass some CORS issues)
-const fetchWithFetch = async (url: string): Promise<any> => {
-  console.log(`Trying fetch with URL: ${url}`);
-  const cacheBuster = `?t=${Date.now()}`;
-  const response = await fetch(`${url}${cacheBuster}`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Cache-Control': 'no-cache',
-    },
-    mode: 'cors', // Allow CORS requests
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! Status: ${response.status}`);
+// Function to fetch data directly using the Fetch API with absolute relative URL
+const fetchFromRelative = async (endpoint: string): Promise<any> => {
+  const url = `/api${endpoint}`;
+  console.log(`Trying fetch with relative URL: ${url}`);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error(`Relative fetch failed for ${url}:`, err);
+    throw err;
   }
-  
-  const data = await response.json();
-  return data;
 };
 
-// Function to fetch data using XMLHttpRequest (as a fallback)
-const fetchWithXHR = (url: string): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    console.log(`Trying XHR with URL: ${url}`);
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', `${url}?t=${Date.now()}`);
-    xhr.setRequestHeader('Accept', 'application/json');
-    xhr.setRequestHeader('Cache-Control', 'no-cache');
-    xhr.responseType = 'json';
+// Function to fetch data directly using the Fetch API with CORS mode
+const fetchWithFetch = async (url: string): Promise<any> => {
+  console.log(`Trying fetch with URL: ${url}`);
+  const cacheBuster = `${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  try {
+    const response = await fetch(`${url}${cacheBuster}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      mode: 'cors',
+    });
     
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response);
-      } else {
-        reject(new Error(`XHR error! Status: ${xhr.status}`));
-      }
-    };
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
     
-    xhr.onerror = () => {
-      reject(new Error('XHR network error'));
-    };
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.error(`Fetch failed for ${url}:`, err);
+    throw err;
+  }
+};
+
+// Function to fetch data using Axios
+const fetchWithAxios = async (url: string): Promise<any> => {
+  console.log(`Trying axios with URL: ${url}`);
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      timeout: 5000
+    });
+    return response.data;
+  } catch (err) {
+    console.error(`Axios failed for ${url}:`, err);
+    throw err;
+  }
+};
+
+// Generate mock data function for fallback
+const generateMockData = () => {
+  console.log("Generating mock product data...");
+  
+  const mockCategories = ['Fruits', 'Vegetables', 'Dairy & Milk', 'Meat', 'Beverages'];
+  const mockProducts = [];
+  
+  const fruitItems = ['Apple', 'Banana', 'Orange', 'Mango', 'Grapes', 'Watermelon', 'Kiwi', 'Pineapple', 'Strawberry', 'Papaya'];
+  const vegetableItems = ['Potato', 'Onion', 'Tomato', 'Carrot', 'Cucumber', 'Cabbage', 'Cauliflower', 'Spinach', 'Capsicum', 'Beans'];
+  const dairyItems = ['Milk', 'Butter', 'Cheese', 'Yogurt', 'Curd', 'Paneer', 'Cream', 'Ghee', 'Buttermilk', 'Ice Cream'];
+  const meatItems = ['Chicken', 'Mutton', 'Fish', 'Eggs', 'Prawns', 'Beef', 'Pork', 'Crab', 'Lamb', 'Turkey'];
+  const beverageItems = ['Cola', 'Sprite', 'Fanta', 'Pepsi', 'Apple Juice', 'Orange Juice', 'Mango Juice', 'Water', 'Soda', 'Energy Drink'];
+  
+  const itemsByCategory = {
+    'Fruits': fruitItems,
+    'Vegetables': vegetableItems,
+    'Dairy & Milk': dairyItems,
+    'Meat': meatItems,
+    'Beverages': beverageItems
+  };
+  
+  const units = {
+    'Fruits': ['1 kg', '500 g', '250 g', '2 kg', '6 pcs'],
+    'Vegetables': ['1 kg', '500 g', '250 g', '2 kg', '3 pcs'],
+    'Dairy & Milk': ['500 ml', '1 L', '250 g', '400 g', '200 g'],
+    'Meat': ['500 g', '1 kg', '6 pcs', '12 pcs', '300 g'],
+    'Beverages': ['1 L', '500 ml', '2 L', '330 ml', '750 ml']
+  };
+  
+  // Generate 50 mock products (10 per category)
+  mockCategories.forEach(category => {
+    const items = itemsByCategory[category];
+    const categoryUnits = units[category];
     
-    xhr.send();
+    items.forEach((item, index) => {
+      const id = `mock-${category.toLowerCase().replace(/\s/g, '-')}-${index + 1}`;
+      const unit = categoryUnits[Math.floor(Math.random() * categoryUnits.length)];
+      const basePrice = Math.floor(Math.random() * 100) + 50; // Random price between 50 and 150
+      
+      // Generate prices for each platform
+      const prices = platformsData.map(platform => {
+        const priceFactor = 0.9 + (Math.random() * 0.2); // 0.9 to 1.1
+        return {
+          platform: platform.id,
+          price: Math.round(basePrice * priceFactor),
+          available: Math.random() > 0.2, // 80% chance of being available
+          deliveryTime: platform.deliveryTime
+        };
+      });
+      
+      mockProducts.push({
+        id,
+        name: item,
+        description: `Fresh ${item} available for quick delivery`,
+        category,
+        image: '/placeholder.svg',
+        unit,
+        price: basePrice,
+        source: 'Mock',
+        prices
+      });
+    });
   });
+  
+  return mockProducts;
 };
 
 // Provider component
@@ -204,93 +293,50 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
-      
-      // Try multiple possible API URLs
-      const possibleUrls = [
-        import.meta.env.VITE_API_URL,
-        'http://localhost:5000/api/products',
-        'http://127.0.0.1:5000/api/products',
-        `http://${window.location.hostname}:5000/api/products`
-      ];
-
-      console.log("Trying the following API URLs:", possibleUrls);
+      console.log("Fetching products...");
       
       let data = null;
-      let errorMessage = "";
+      let usedMockData = false;
       
-      // First try with Fetch API
-      for (const url of possibleUrls) {
-        if (!url) continue;
-        
+      // Try API fetch using multiple methods in sequence
+      try {
+        // First attempt: Try using the relative URL with vite proxy
+        console.log("Attempt 1: Using relative URL with proxy");
+        data = await fetchFromRelative('/products');
+        console.log("Relative URL fetch successful with", data.length, "products");
+      } catch (error1) {
+        console.log("Relative URL fetch failed:", error1);
         try {
-          data = await fetchWithFetch(url);
-          if (data) {
-            console.log(`Successful fetch from: ${url}`);
-            break;
-          }
-        } catch (err) {
-          errorMessage += `Failed to fetch from ${url}: ${err.message}\n`;
-          console.error(`Failed to fetch from ${url}:`, err);
-        }
-      }
-      
-      // If Fetch API fails, try with XMLHttpRequest
-      if (!data) {
-        console.log('Fetch API failed, trying XMLHttpRequest');
-        for (const url of possibleUrls) {
-          if (!url) continue;
-          
+          // Second attempt: Try direct URL with fetch
+          console.log("Attempt 2: Using direct URL with fetch");
+          data = await fetchWithFetch('http://localhost:5000/api/products');
+          console.log("Direct URL fetch successful with", data.length, "products");
+        } catch (error2) {
+          console.log("Direct URL fetch failed:", error2);
           try {
-            data = await fetchWithXHR(url);
-            if (data) {
-              console.log(`Successful XHR from: ${url}`);
-              break;
-            }
-          } catch (err) {
-            errorMessage += `Failed XHR from ${url}: ${err.message}\n`;
-            console.error(`Failed XHR from ${url}:`, err);
-          }
-        }
-      }
-      
-      // As a last resort, try with Axios
-      if (!data) {
-        console.log('Both Fetch and XHR failed, trying Axios');
-        for (const url of possibleUrls) {
-          if (!url) continue;
-          
-          try {
-            const response = await axios.get(`${url}?t=${Date.now()}`, {
-              timeout: 15000,
-              headers: {
-                'Cache-Control': 'no-cache',
-                'Accept': 'application/json'
-              }
-            });
+            // Third attempt: Try direct URL with axios
+            console.log("Attempt 3: Using direct URL with axios");
+            data = await fetchWithAxios('http://localhost:5000/api/products');
+            console.log("Axios fetch successful with", data.length, "products");
+          } catch (error3) {
+            console.log("All fetch attempts failed");
             
-            if (response.data) {
-              console.log(`Successful Axios from: ${url}`);
-              data = response.data;
-              break;
-            }
-          } catch (err) {
-            errorMessage += `Failed Axios from ${url}: ${err.message}\n`;
-            console.error(`Failed Axios from ${url}:`, err);
+            // Final attempt: Use mock data
+            console.log("Using mock data instead");
+            data = generateMockData();
+            usedMockData = true;
+            console.log("Generated", data.length, "mock products");
           }
         }
       }
       
-      // Check if we got any data
       if (!data || !Array.isArray(data)) {
-        throw new Error(`All API attempts failed. Details:\n${errorMessage}`);
+        console.error("Invalid data format received:", data);
+        data = generateMockData();
+        usedMockData = true;
       }
       
-      console.log(`Successfully received ${data.length} products from API`);
-      
-      // Log a sample product to help debug
-      if (data.length > 0) {
-        console.log('Sample product:', data[0]);
-      }
+      console.log(`Successfully received ${data.length} products (${usedMockData ? 'mock' : 'real'} data)`);
       
       // Transform API data to our product format
       const transformedProducts = transformProductData(data);
@@ -305,6 +351,12 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setLoading(false);
       fetchAttemptsRef.current = 0; // Reset attempts on success
+      
+      if (usedMockData) {
+        setError("Could not connect to the backend server. Using mock data instead.");
+      } else {
+        setError(null);
+      }
     } catch (err) {
       console.error('Error fetching products:', err);
       setError(`Failed to load products: ${err.message}. Please try again later.`);
@@ -318,6 +370,18 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTimeout(() => {
           fetchProducts();
         }, delay);
+      } else {
+        // As a last resort, generate mock data
+        console.log("Maximum API fetch attempts reached. Using mock data instead.");
+        const mockData = generateMockData();
+        const transformedProducts = transformProductData(mockData);
+        setProducts(transformedProducts);
+        
+        const uniqueCategories = ['All', ...new Set(transformedProducts.map(product => product.category))];
+        setCategories(uniqueCategories);
+        
+        setLoading(false);
+        setError("Could not connect to the server. Using mock data instead.");
       }
     }
   };
@@ -510,37 +574,27 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platform: item.platform
       }));
       
-      // Try multiple possible API URLs
-      const possibleUrls = [
-        import.meta.env.VITE_API_URL?.replace('/products', '/cart'),
-        'http://localhost:5000/api/cart',
-        'http://127.0.0.1:5000/api/cart',
-        `http://${window.location.hostname}:5000/api/cart`
-      ];
-      
-      let saved = false;
-      let errorMessage = "";
-      
-      for (const url of possibleUrls) {
-        if (!url) continue;
+      // Try multiple possible ways to save cart
+      try {
+        // First try with relative URL (vite proxy)
+        await fetchFromRelative('/cart');
+        console.log('Successfully saved cart with relative URL');
+        return;
+      } catch (error1) {
+        console.log('Failed to save cart with relative URL:', error1);
         
+        // Try direct URL 
         try {
-          const response = await axios.post(url, { items: cartData }, {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000
-          });
-          console.log(`Successfully saved cart to ${url}`);
-          saved = true;
-          break;
-        } catch (err) {
-          errorMessage += `Failed to save cart to ${url}: ${err.message}\n`;
-          console.error(`Failed to save cart to ${url}:`, err);
-          // Continue to the next URL
+          const response = await axios.post('http://localhost:5000/api/cart', 
+            { items: cartData }, 
+            { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
+          );
+          console.log('Successfully saved cart with direct URL');
+          return;
+        } catch (error2) {
+          console.error('Failed to save cart with direct URL:', error2);
+          // Cart couldn't be saved, but we'll continue silently
         }
-      }
-      
-      if (!saved) {
-        console.error(`Failed to save cart to any endpoint. Details:\n${errorMessage}`);
       }
     } catch (error) {
       console.error('Error saving cart:', error);
@@ -553,43 +607,39 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!token) return; // Not logged in
     
     try {
-      // Try multiple possible API URLs
-      const possibleUrls = [
-        import.meta.env.VITE_API_URL?.replace('/products', '/cart'),
-        'http://localhost:5000/api/cart',
-        'http://127.0.0.1:5000/api/cart',
-        `http://${window.location.hostname}:5000/api/cart`
-      ];
+      let cartData = null;
       
-      let response = null;
-      let errorMessage = "";
-      
-      for (const url of possibleUrls) {
-        if (!url) continue;
+      // Try multiple approaches to load the cart
+      try {
+        // First try with relative URL (vite proxy)
+        cartData = await fetchFromRelative('/cart');
+        console.log('Successfully loaded cart with relative URL');
+      } catch (error1) {
+        console.log('Failed to load cart with relative URL:', error1);
         
+        // Try direct URL
         try {
-          response = await axios.get(url, {
+          const response = await axios.get('http://localhost:5000/api/cart', {
             headers: { Authorization: `Bearer ${token}` },
             timeout: 5000
           });
-          console.log(`Successfully loaded cart from ${url}`);
-          break;
-        } catch (err) {
-          errorMessage += `Failed to load cart from ${url}: ${err.message}\n`;
-          console.error(`Failed to load cart from ${url}:`, err);
-          // Continue to the next URL
+          cartData = response.data;
+          console.log('Successfully loaded cart with direct URL');
+        } catch (error2) {
+          console.error('Failed to load cart with direct URL:', error2);
+          return; // Can't load the cart
         }
       }
       
-      if (!response) {
-        console.error(`Failed to load cart from any endpoint. Details:\n${errorMessage}`);
+      if (!cartData) {
+        console.error('No cart data received');
         return;
       }
       
       // Find the product objects and build cart items
       const userCart: CartItem[] = [];
       
-      for (const item of response.data.items) {
+      for (const item of cartData.items) {
         const product = products.find(p => p.id === item.productId);
         if (product) {
           userCart.push({
@@ -601,7 +651,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Only update if we have valid data or explicitly empty cart
-      if (userCart.length > 0 || response.data.items.length === 0) {
+      if (userCart.length > 0 || cartData.items.length === 0) {
         setCart(userCart);
       }
     } catch (error) {

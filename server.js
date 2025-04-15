@@ -1,5 +1,4 @@
-// server.js
-
+// server.js (updated)
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -15,13 +14,23 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Setup CORS with very permissive settings
+// CORS configuration with more detailed setup
+const corsOptions = {
+  origin: ['http://localhost:8080', 'http://127.0.0.1:8080', '*'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware with options
+app.use(cors(corsOptions));
+
+// Additional CORS headers for all routes
 app.use((req, res, next) => {
-  // Allow any origin
   res.header("Access-Control-Allow-Origin", "*");
-  // Allow common headers
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  // Allow common methods
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   
   // Handle preflight
@@ -31,13 +40,6 @@ app.use((req, res, next) => {
   
   next();
 });
-
-// Also use the cors middleware as a belt-and-suspenders approach
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
 
 // Parse JSON requests
 app.use(express.json());
