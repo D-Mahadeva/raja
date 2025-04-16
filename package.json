@@ -16,11 +16,15 @@
     "mock-data": "node generateMockData.js",
     "match-products": "node productMatcher.js",
     "start": "concurrently \"npm run backend:only\" \"npm run dev\"",
+    "start:full": "concurrently \"npm run backend:only\" \"npm run blinkit-clone\" \"npm run zepto-clone\" \"npm run dev\"",
     "test-api": "node test-api.js",
     "check-port": "node check-port.js",
     "fix": "node fix-issues.js",
     "reset": "rm -rf node_modules && npm install && node fix-issues.js",
-    "check-server": "node check-server.js"
+    "check-server": "node check-server.js",
+    "blinkit-clone": "node blinkit-clone/index.js",
+    "zepto-clone": "node zepto-clone/index.js",
+    "setup-clones": "node setup-clones.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -72,6 +76,8 @@
     "next-themes": "^0.3.0",
     "node-fetch": "3",
     "puppeteer": "^24.4.0",
+    "qrcode": "^1.5.3",
+    "razorpay": "^2.9.2",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",

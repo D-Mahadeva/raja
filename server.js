@@ -12,7 +12,7 @@ import cartRoutes from "./src/routes/cart.js";
 // Configure environment variables
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.BACKEND_PORT || 5000;
 
 // CORS configuration with more detailed setup
 const corsOptions = {

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zepto Clone</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --zepto-purple: #8025fb;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f9f9f9;
+    }
+    .zepto-purple {
+      color: var(--zepto-purple);
+    }
+    .bg-zepto-purple {
+      background-color: var(--zepto-purple);
+    }
+  </style>
+</head>
+<body>
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="h-8">
+        <span class="text-2xl font-bold zepto-purple">zepto</span>
+      </div>
+      <div class="text-sm font-medium">Zepto Clone</div>
+    </div>
+  </header>
+
+  <main class="container mx-auto py-8 px-4">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-sm p-6">
+      <h1 class="text-2xl font-bold mb-6 text-center">Zepto Clone Demo</h1>
+      
+      <div class="mb-6 text-center">
+        <p class="zepto-purple font-medium mb-2">Platform Clone Integration</p>
+        <p class="text-gray-500">This is a simplified clone of Zepto for demonstrating checkout integration with PriceWise.</p>
+      </div>
+      
+      <div class="bg-purple-50 p-4 rounded-lg mb-6">
+        <h2 class="font-semibold mb-2">How it works</h2>
+        <ol class="list-decimal pl-5 space-y-2 text-sm">
+          <li>PriceWise sends cart data to this Zepto clone when a user chooses to checkout</li>
+          <li>The user completes payment process on this platform</li>
+          <li>Order status is sent back to PriceWise in real-time</li>
+          <li>The user can track their order from either platform</li>
+        </ol>
+      </div>
+      
+      <div class="border border-gray-200 rounded-lg p-4">
+        <h2 class="font-semibold mb-2">Test this integration</h2>
+        <p class="text-sm text-gray-500 mb-4">Add items to your cart in PriceWise, then select Zepto as your checkout platform.</p>
+        <button class="w-full py-3 px-4 bg-zepto-purple text-white rounded-md font-medium hover:bg-purple-700 transition">
+          Go to PriceWise
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white border-t border-gray-200 py-6 mt-8">
+    <div class="container mx-auto px-4">
+      <div class="text-center text-sm text-gray-500">
+        <p>&copy; 2025 Zepto Clone. This is a demo app for educational purposes only.</p>
+        <p class="mt-1">Not affiliated with the real Zepto.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelector('button').addEventListener('click', () => {
+      window.location.href = 'http://localhost:8080';
+    });
+  </script>
+</body>
+</html>
