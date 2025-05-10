@@ -1,9 +1,6 @@
 // api-fallback.js
 // A Vite plugin to provide mock data when the backend is not available
 
-import fs from 'fs';
-import path from 'path';
-
 /**
  * Create a Vite plugin that intercepts API requests and returns mock data
  * if the backend server is not available
@@ -111,19 +108,27 @@ export function apiFallbackPlugin() {
     if (backendChecked) return backendAvailable;
     
     try {
+      console.log('[API Fallback] Checking if backend server is available...');
+      // Use fetch with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch('http://localhost:5000/api/health', {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        mode: 'no-cors',
+        mode: 'cors',
         cache: 'no-cache',
-        timeout: 2000
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
       backendAvailable = response.ok;
-      console.log(`[API Fallback] Backend status: ${backendAvailable ? 'Available' : 'Unavailable'}`);
+      console.log(`[API Fallback] Backend status: ${backendAvailable ? 'Available ✅' : 'Unavailable ❌'}`);
     } catch (e) {
       backendAvailable = false;
       console.log('[API Fallback] Backend unavailable, using mock data');
+      console.error(e);
     }
     
     backendChecked = true;
@@ -145,12 +150,14 @@ export function apiFallbackPlugin() {
         
         if (apiMatch) {
           const endpoint = `/api/${apiMatch[1]}`;
+          console.log(`[API Fallback] Intercepted request to ${endpoint}`);
           
           // Check if backend is available
           const isBackendAvailable = await checkBackendStatus();
           
           if (!isBackendAvailable && apiHandlers[endpoint]) {
             // Return mock data
+            console.log(`[API Fallback] Returning mock data for ${endpoint}`);
             const mockData = apiHandlers[endpoint]();
             
             res.setHeader('Content-Type', 'application/json');

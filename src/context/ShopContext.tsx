@@ -76,6 +76,35 @@ const platformsData: PlatformInfo[] = [
 // Create the context
 const ShopContext = createContext<ShopContextType | undefined>(undefined);
 
+// Helper function to get the appropriate API URL based on network environment
+const getNetworkApiUrl = () => {
+  // Try different possible API URL sources
+  const envApiUrl = import.meta.env.VITE_API_URL?.replace('/products', '');
+  const currentHostname = window.location.hostname;
+  const currentPort = window.location.port;
+  const isLocalhost = currentHostname === 'localhost' || currentHostname === '127.0.0.1';
+  
+  // Base URL candidates
+  const possibleUrls = [
+    envApiUrl,
+    `http://${currentHostname}:5000/api`,
+    'http://localhost:5000/api',
+    '/api' // Relative URL for Vite proxy
+  ];
+  
+  console.log('Possible API URLs:', possibleUrls);
+  console.log('Current hostname:', currentHostname);
+  console.log('Is localhost:', isLocalhost);
+  
+  // If we're accessing from a network IP, prioritize that IP with the backend port
+  if (!isLocalhost) {
+    return `http://${currentHostname}:5000/api`;
+  }
+  
+  // Otherwise, use the first available URL
+  return possibleUrls.find(url => url) || 'http://localhost:5000/api';
+};
+
 // Helper function to transform API data to our product format
 const transformProductData = (apiProducts: any[]): Product[] => {
   if (!Array.isArray(apiProducts)) {
@@ -135,37 +164,16 @@ const transformProductData = (apiProducts: any[]): Product[] => {
   });
 };
 
-// Function to fetch data directly using the Fetch API with absolute relative URL
-const fetchFromRelative = async (endpoint: string): Promise<any> => {
-  const url = `/api${endpoint}`;
-  console.log(`Trying fetch with relative URL: ${url}`);
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (err) {
-    console.error(`Relative fetch failed for ${url}:`, err);
-    throw err;
-  }
-};
-
-// Function to fetch data directly using the Fetch API with CORS mode
+// Function to fetch data using Fetch API with better error handling
 const fetchWithFetch = async (url: string): Promise<any> => {
   console.log(`Trying fetch with URL: ${url}`);
-  const cacheBuster = `${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
   try {
-    const response = await fetch(`${url}${cacheBuster}`, {
+    const cacheBuster = `${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const fullUrl = `${url}${cacheBuster}`;
+    
+    console.log(`Full URL with cache buster: ${fullUrl}`);
+    
+    const response = await fetch(fullUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -179,6 +187,7 @@ const fetchWithFetch = async (url: string): Promise<any> => {
     }
     
     const data = await response.json();
+    console.log(`Fetched ${data.length} products from ${url}`);
     return data;
   } catch (err) {
     console.error(`Fetch failed for ${url}:`, err);
@@ -195,8 +204,12 @@ const fetchWithAxios = async (url: string): Promise<any> => {
         'Accept': 'application/json',
         'Cache-Control': 'no-cache',
       },
-      timeout: 5000
+      timeout: 10000, // Increased timeout for slower networks
+      params: {
+        t: Date.now() // Cache buster
+      }
     });
+    console.log(`Axios success with ${response.data.length} products`);
     return response.data;
   } catch (err) {
     console.error(`Axios failed for ${url}:`, err);
@@ -286,7 +299,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Ref for fetch attempts
   const fetchAttemptsRef = useRef<number>(0);
-  const maxFetchAttempts = 3;
+  const maxFetchAttempts = 5; // Increased number of attempts for reliability
   
   // Function to fetch products from API
   const fetchProducts = async () => {
@@ -298,36 +311,59 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let data = null;
       let usedMockData = false;
       
-      // Try API fetch using multiple methods in sequence
-      try {
-        // First attempt: Try using the relative URL with vite proxy
-        console.log("Attempt 1: Using relative URL with proxy");
-        data = await fetchFromRelative('/products');
-        console.log("Relative URL fetch successful with", data.length, "products");
-      } catch (error1) {
-        console.log("Relative URL fetch failed:", error1);
+      // Get the network-aware API URL
+      const apiBaseUrl = getNetworkApiUrl();
+      console.log("Using API base URL:", apiBaseUrl);
+      
+      // Possible API endpoints to try
+      const endpoints = [
+        `${apiBaseUrl}/products`,
+        '/api/products', // Vite proxy
+        'http://localhost:5000/api/products',
+        `http://${window.location.hostname}:5000/api/products`
+      ];
+      
+      console.log("Will try these endpoints:", endpoints);
+      
+      // Try each endpoint until one works
+      let success = false;
+      for (const endpoint of endpoints) {
+        if (success) break;
+        
         try {
-          // Second attempt: Try direct URL with fetch
-          console.log("Attempt 2: Using direct URL with fetch");
-          data = await fetchWithFetch('http://localhost:5000/api/products');
-          console.log("Direct URL fetch successful with", data.length, "products");
-        } catch (error2) {
-          console.log("Direct URL fetch failed:", error2);
+          console.log(`Attempting to fetch from ${endpoint}...`);
+          
+          // Try with fetch API first
           try {
-            // Third attempt: Try direct URL with axios
-            console.log("Attempt 3: Using direct URL with axios");
-            data = await fetchWithAxios('http://localhost:5000/api/products');
-            console.log("Axios fetch successful with", data.length, "products");
-          } catch (error3) {
-            console.log("All fetch attempts failed");
+            data = await fetchWithFetch(endpoint);
+            console.log(`Fetch API succeeded with ${endpoint}`);
+            success = true;
+            break;
+          } catch (fetchError) {
+            console.log(`Fetch API failed with ${endpoint}, trying axios...`);
             
-            // Final attempt: Use mock data
-            console.log("Using mock data instead");
-            data = generateMockData();
-            usedMockData = true;
-            console.log("Generated", data.length, "mock products");
+            // If fetch fails, try with axios
+            try {
+              data = await fetchWithAxios(endpoint);
+              console.log(`Axios succeeded with ${endpoint}`);
+              success = true;
+              break;
+            } catch (axiosError) {
+              console.log(`Axios also failed with ${endpoint}`);
+              // Continue to next endpoint
+            }
           }
+        } catch (endpointError) {
+          console.log(`All methods failed with ${endpoint}`);
+          // Continue to next endpoint
         }
+      }
+      
+      // If all endpoints failed, use mock data
+      if (!success) {
+        console.log("All endpoints failed, using mock data");
+        data = generateMockData();
+        usedMockData = true;
       }
       
       if (!data || !Array.isArray(data)) {
@@ -574,25 +610,61 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         platform: item.platform
       }));
       
-      // Try multiple possible ways to save cart
-      try {
-        // First try with relative URL (vite proxy)
-        await fetchFromRelative('/cart');
-        console.log('Successfully saved cart with relative URL');
-        return;
-      } catch (error1) {
-        console.log('Failed to save cart with relative URL:', error1);
+      // Get network-aware API URL
+      const apiUrl = getNetworkApiUrl();
+      
+      // Try multiple approaches to save cart
+      const saveEndpoints = [
+        `${apiUrl}/cart`,
+        '/api/cart', // Vite proxy
+        'http://localhost:5000/api/cart',
+        `http://${window.location.hostname}:5000/api/cart`
+      ];
+      
+      let success = false;
+      
+      for (const endpoint of saveEndpoints) {
+        if (success) break;
         
-        // Try direct URL 
         try {
-          const response = await axios.post('http://localhost:5000/api/cart', 
+          console.log(`Trying to save cart to ${endpoint}`);
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ items: cartData })
+          });
+          
+          if (response.ok) {
+            console.log(`Successfully saved cart to ${endpoint}`);
+            success = true;
+            break;
+          }
+        } catch (err) {
+          console.error(`Failed to save cart to ${endpoint}:`, err);
+          // Continue to next endpoint
+        }
+      }
+      
+      if (!success) {
+        // Try with axios as a last resort
+        try {
+          const response = await axios.post(`${apiUrl}/cart`, 
             { items: cartData }, 
-            { headers: { Authorization: `Bearer ${token}` }, timeout: 5000 }
+            { 
+              headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json' 
+              }, 
+              timeout: 8000 
+            }
           );
-          console.log('Successfully saved cart with direct URL');
-          return;
-        } catch (error2) {
-          console.error('Failed to save cart with direct URL:', error2);
+          console.log('Successfully saved cart with axios');
+          success = true;
+        } catch (error) {
+          console.error('Failed to save cart with all methods:', error);
           // Cart couldn't be saved, but we'll continue silently
         }
       }
@@ -607,26 +679,59 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!token) return; // Not logged in
     
     try {
-      let cartData = null;
+      // Get network-aware API URL
+      const apiUrl = getNetworkApiUrl();
       
-      // Try multiple approaches to load the cart
-      try {
-        // First try with relative URL (vite proxy)
-        cartData = await fetchFromRelative('/cart');
-        console.log('Successfully loaded cart with relative URL');
-      } catch (error1) {
-        console.log('Failed to load cart with relative URL:', error1);
+      // Possible endpoints to try
+      const loadEndpoints = [
+        `${apiUrl}/cart`,
+        '/api/cart', // Vite proxy
+        'http://localhost:5000/api/cart',
+        `http://${window.location.hostname}:5000/api/cart`
+      ];
+      
+      let cartData = null;
+      let success = false;
+      
+      for (const endpoint of loadEndpoints) {
+        if (success) break;
         
-        // Try direct URL
         try {
-          const response = await axios.get('http://localhost:5000/api/cart', {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 5000
+          console.log(`Trying to load cart from ${endpoint}`);
+          const response = await fetch(endpoint, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (response.ok) {
+            cartData = await response.json();
+            console.log(`Successfully loaded cart from ${endpoint}:`, cartData);
+            success = true;
+            break;
+          }
+        } catch (err) {
+          console.error(`Failed to load cart from ${endpoint}:`, err);
+          // Continue to next endpoint
+        }
+      }
+      
+      if (!success) {
+        // Try with axios as a last resort
+        try {
+          const response = await axios.get(`${apiUrl}/cart`, {
+            headers: { 
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            },
+            timeout: 8000
           });
           cartData = response.data;
-          console.log('Successfully loaded cart with direct URL');
-        } catch (error2) {
-          console.error('Failed to load cart with direct URL:', error2);
+          console.log('Successfully loaded cart with axios:', cartData);
+          success = true;
+        } catch (error) {
+          console.error('Failed to load cart with all methods:', error);
           return; // Can't load the cart
         }
       }
@@ -711,7 +816,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // For platforms with similar availability, sort by price
       return a.total - b.total;
     });
-    
+     
     return availablePlatforms[0];
   };
 
@@ -763,3 +868,5 @@ export const useShop = () => {
   
   return context;
 };
+
+export default ShopContext;

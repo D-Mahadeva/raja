@@ -1,15 +1,14 @@
-<!-- blinkit-clone/public/checkout.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checkout | Blinkit</title>
+  <title>Checkout | Zepto</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     :root {
-      --blinkit-green: #0c831f;
-      --blinkit-light-green: #e5f6e8;
+      --zepto-purple: #8025fb;
+      --zepto-light-purple: #f5f0ff;
     }
     
     body {
@@ -17,20 +16,20 @@
       background-color: #f9f9f9;
     }
     
-    .blinkit-green {
-      color: var(--blinkit-green);
+    .zepto-purple {
+      color: var(--zepto-purple);
     }
     
-    .bg-blinkit-green {
-      background-color: var(--blinkit-green);
+    .bg-zepto-purple {
+      background-color: var(--zepto-purple);
     }
     
-    .bg-blinkit-light {
-      background-color: var(--blinkit-light-green);
+    .bg-zepto-light {
+      background-color: var(--zepto-light-purple);
     }
     
-    .border-blinkit {
-      border-color: var(--blinkit-green);
+    .border-zepto {
+      border-color: var(--zepto-purple);
     }
     
     .checkout-container {
@@ -46,8 +45,8 @@
       font-size: 1rem;
       font-weight: 600;
       padding: 0.25rem 0.5rem;
-      background-color: var(--blinkit-light-green);
-      color: var(--blinkit-green);
+      background-color: var(--zepto-light-purple);
+      color: var(--zepto-purple);
       border-radius: 0.25rem;
     }
     
@@ -66,9 +65,9 @@
     }
     
     .form-control:focus {
-      border-color: var(--blinkit-green);
+      border-color: var(--zepto-purple);
       outline: 0;
-      box-shadow: 0 0 0 0.2rem rgba(12, 131, 31, 0.25);
+      box-shadow: 0 0 0 0.2rem rgba(128, 37, 251, 0.25);
     }
     
     .payment-card {
@@ -81,13 +80,13 @@
     }
     
     .payment-card:hover {
-      border-color: var(--blinkit-green);
-      background-color: var(--blinkit-light-green);
+      border-color: var(--zepto-purple);
+      background-color: var(--zepto-light-purple);
     }
     
     .payment-card.selected {
-      border-color: var(--blinkit-green);
-      background-color: var(--blinkit-light-green);
+      border-color: var(--zepto-purple);
+      background-color: var(--zepto-light-purple);
     }
     
     .qr-code-container {
@@ -120,7 +119,7 @@
     }
     
     .breadcrumb-item.active {
-      color: var(--blinkit-green);
+      color: var(--zepto-purple);
       font-weight: 600;
     }
     
@@ -142,12 +141,9 @@
   <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
     <div class="checkout-container px-4 py-3 flex items-center justify-between">
       <div class="logo-container">
-        <svg viewBox="0 0 89 24" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M35.3 12.5c0-5.4-4-9.7-9.5-9.7-2.6 0-4.9 1-6.6 2.5a9.4 9.4 0 0 0-2.9 7.2c0 3.5 1.6 6.5 4.4 8.2 1.5 1 3.3 1.5 5.1 1.5 5.5 0 9.5-4.3 9.5-9.7Zm-12.3 4.1V8.4h5.5v8.2h-5.5Zm-44.7 0V8.4h5.5v8.2h-5.5Zm6.4-12a9.8 9.8 0 0 0-9.5 9.9c0 5.4 4 9.7 9.5 9.7 2.6 0 4.9-1 6.6-2.5a9.4 9.4 0 0 0 2.9-7.2c0-5.4-4-9.9-9.5-9.9ZM79 12.5c0-5.4-4-9.7-9.5-9.7-2.6 0-4.9 1-6.6 2.5a9.4 9.4 0 0 0-2.9 7.2c0 5.4 4 9.7 9.5 9.7 2.6 0 4.9-1 6.6-2.5a9.4 9.4 0 0 0 2.9-7.2Zm-12.3 4.1V8.4h5.5v8.2h-5.5Zm-28-4.1c0-5.4-4-9.7-9.5-9.7-2.6 0-4.9 1-6.6 2.5a9.4 9.4 0 0 0-2.9 7.2c0 5.4 4 9.7 9.5 9.7 2.6 0 4.9-1 6.6-2.5a9.4 9.4 0 0 0 2.9-7.2Zm-12.3 4.1V8.4h5.5v8.2h-5.5Z" fill="#0C831F"/>
-          <path d="M83.2 16.7c0-.5.1-1 .3-1.4.3-.4.6-.8 1-1 .4-.3.9-.4 1.4-.4.5 0 1 .1 1.4.4.4.2.7.6 1 1 .2.4.3.9.3 1.4 0 .5-.1 1-.3 1.5-.3.4-.6.7-1 1-.4.2-.9.3-1.4.3-.5 0-1-.1-1.4-.4-.4-.2-.7-.5-1-1-.2-.4-.3-.9-.3-1.4Zm.8 0c0 .4.1.7.2 1 .2.3.4.5.7.7.3.2.6.2 1 .2.3 0 .7 0 1-.2.3-.2.5-.4.7-.7.1-.3.2-.6.2-1s-.1-.7-.2-1a1.6 1.6 0 0 0-.7-.7 2 2 0 0 0-1-.2c-.4 0-.7 0-1 .2-.3.2-.5.4-.7.7-.1.3-.2.6-.2 1Zm-7.8-2.5h.8v2.6c0 .2 0 .5.2.7l.6.3h.7c.3 0 .5 0 .7-.2.2 0 .4-.2.5-.4V14h.8v4.8h-.8v-.6l-.5.4c-.3.2-.6.3-1 .3-.3 0-.6 0-.9-.2a1.3 1.3 0 0 1-.6-.6c-.2-.2-.2-.6-.2-1v-2.8Zm-3.6 4.8h.8v-6.7h-.8v6.7Z" fill="#0C831F"/>
-        </svg>
+        <span class="text-2xl font-bold zepto-purple">zepto</span>
       </div>
-      <div class="timer" id="delivery-timer">10 min delivery</div>
+      <div class="timer" id="delivery-timer">8 min delivery</div>
     </div>
   </header>
 
@@ -192,7 +188,7 @@
             </div>
             <div class="flex justify-between mb-2">
               <span>Delivery Fee</span>
-              <span class="text-green-600">FREE</span>
+              <span class="text-purple-600">FREE</span>
             </div>
             <div class="flex justify-between font-semibold text-lg mt-2 pt-2 border-t">
               <span>Total</span>
@@ -201,7 +197,7 @@
           </div>
           
           <div class="mt-6">
-            <button id="btn-proceed-address" class="w-full bg-blinkit-green text-white py-3 px-4 rounded-md font-medium hover:bg-green-700 transition">
+            <button id="btn-proceed-address" class="w-full bg-zepto-purple text-white py-3 px-4 rounded-md font-medium hover:bg-purple-700 transition">
               Proceed to Address
             </button>
           </div>
@@ -252,7 +248,7 @@
               <button type="button" id="btn-back-cart" class="px-6 py-3 bg-gray-100 text-gray-700 rounded-md font-medium hover:bg-gray-200 transition">
                 Back to Cart
               </button>
-              <button type="submit" id="btn-proceed-payment" class="px-6 py-3 bg-blinkit-green text-white rounded-md font-medium hover:bg-green-700 transition">
+              <button type="submit" id="btn-proceed-payment" class="px-6 py-3 bg-zepto-purple text-white rounded-md font-medium hover:bg-purple-700 transition">
                 Proceed to Payment
               </button>
             </div>
@@ -266,8 +262,8 @@
           <div id="payment-options">
             <div class="payment-card selected" data-payment="upi">
               <div class="flex items-center">
-                <div class="w-6 h-6 rounded-full border-2 border-blinkit mr-3 flex items-center justify-center">
-                  <div class="w-3 h-3 rounded-full bg-blinkit-green"></div>
+                <div class="w-6 h-6 rounded-full border-2 border-zepto mr-3 flex items-center justify-center">
+                  <div class="w-3 h-3 rounded-full bg-zepto-purple"></div>
                 </div>
                 <div class="flex-grow">
                   <h3 class="font-medium">UPI Payment</h3>
@@ -293,16 +289,16 @@
               </div>
             </div>
             
-            <div class="payment-card" data-payment="cod">
+            <div class="payment-card" data-payment="wallet">
               <div class="flex items-center">
                 <div class="w-6 h-6 rounded-full border-2 border-gray-300 mr-3 flex items-center justify-center">
                   <div class="w-3 h-3 rounded-full bg-white"></div>
                 </div>
                 <div class="flex-grow">
-                  <h3 class="font-medium">Cash on Delivery</h3>
-                  <p class="text-sm text-gray-500">Pay at your doorstep when the order arrives</p>
+                  <h3 class="font-medium">Wallet Payment</h3>
+                  <p class="text-sm text-gray-500">Pay using Paytm, PhonePe, or other wallet</p>
                 </div>
-                <img src="https://cdn-icons-png.flaticon.com/512/2037/2037450.png" alt="Cash" class="w-10 h-10">
+                <img src="https://cdn-icons-png.flaticon.com/512/2065/2065461.png" alt="Wallet" class="w-10 h-10">
               </div>
             </div>
           </div>
@@ -316,13 +312,13 @@
             <div class="qr-code-container">
               <div class="w-48 h-48">
                 <!-- Using a demo QR code image -->
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=razorpay@okaxis&pn=BlinkitClone&am=0&cu=INR" id="qr-code-image" alt="UPI QR Code" class="w-full h-full">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=zepto@hdfcbank&pn=ZeptoClone&am=0&cu=INR" id="qr-code-image" alt="UPI QR Code" class="w-full h-full">
               </div>
             </div>
             
             <div class="mt-4 text-center">
               <p class="text-sm text-gray-500 mb-1">Amount to pay: <span class="font-medium" id="payment-amount">₹0.00</span></p>
-              <button id="btn-pay-now" class="w-full md:w-auto px-8 py-3 bg-blinkit-green text-white rounded-md font-medium hover:bg-green-700 transition">
+              <button id="btn-pay-now" class="w-full md:w-auto px-8 py-3 bg-zepto-purple text-white rounded-md font-medium hover:bg-purple-700 transition">
                 I've completed the payment
               </button>
             </div>
@@ -338,7 +334,7 @@
         <!-- Payment Processing -->
         <div id="payment-processing" class="bg-white rounded-lg shadow-sm p-6 mb-4 text-center">
           <div class="mx-auto w-16 h-16 mb-4">
-            <svg class="animate-spin h-16 w-16 text-blinkit-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-16 w-16 text-zepto-purple" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -350,8 +346,8 @@
         <!-- Order Confirmation -->
         <div id="order-confirmation" class="bg-white rounded-lg shadow-sm p-6 mb-4">
           <div class="text-center mb-6">
-            <div class="mx-auto w-16 h-16 bg-blinkit-light rounded-full flex items-center justify-center mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-blinkit-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="mx-auto w-16 h-16 bg-zepto-light rounded-full flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-zepto-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
               </svg>
             </div>
@@ -366,7 +362,7 @@
             </div>
             <div class="flex justify-between mb-2">
               <span class="text-gray-500">Estimated Delivery:</span>
-              <span class="font-medium" id="estimated-delivery">10-15 minutes</span>
+              <span class="font-medium" id="estimated-delivery">8-12 minutes</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500">Delivery Address:</span>
@@ -386,7 +382,7 @@
           </div>
           
           <div class="text-center">
-            <a id="return-to-shop" href="#" class="inline-block px-6 py-3 bg-blinkit-green text-white rounded-md font-medium hover:bg-green-700 transition">
+            <a id="return-to-shop" href="#" class="inline-block px-6 py-3 bg-zepto-purple text-white rounded-md font-medium hover:bg-purple-700 transition">
               Return to Shopping
             </a>
           </div>
@@ -405,7 +401,7 @@
           </div>
           
           <div class="text-center">
-            <button id="btn-try-again" class="inline-block px-6 py-3 bg-blinkit-green text-white rounded-md font-medium hover:bg-green-700 transition">
+            <button id="btn-try-again" class="inline-block px-6 py-3 bg-zepto-purple text-white rounded-md font-medium hover:bg-purple-700 transition">
               Try Again
             </button>
           </div>
@@ -417,7 +413,7 @@
         <div class="bg-white rounded-lg shadow-sm p-4 sticky top-20">
           <h3 class="font-medium mb-3">Delivery Location</h3>
           <div class="flex items-start mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blinkit-green mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-zepto-purple mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -442,7 +438,7 @@
               </div>
               <div class="flex justify-between mb-2 text-sm">
                 <span>Delivery Fee</span>
-                <span class="text-green-600">FREE</span>
+                <span class="text-purple-600">FREE</span>
               </div>
               <div class="flex justify-between font-medium">
                 <span>Total</span>
@@ -458,8 +454,8 @@
   <footer class="bg-white border-t border-gray-200 py-6">
     <div class="checkout-container px-4">
       <div class="text-center text-sm text-gray-500">
-        <p>&copy; 2025 Blinkit Clone. This is a demo app for educational purposes only.</p>
-        <p class="mt-1">Not affiliated with the real Blinkit.</p>
+        <p>&copy; 2025 Zepto Clone. This is a demo app for educational purposes only.</p>
+        <p class="mt-1">Not affiliated with the real Zepto.</p>
       </div>
     </div>
   </footer>
@@ -526,14 +522,14 @@
         // Remove selected class from all cards
         paymentCards.forEach(c => {
           c.classList.remove('selected');
-          c.querySelector('.rounded-full').classList.replace('border-blinkit', 'border-gray-300');
-          c.querySelector('.rounded-full div').classList.replace('bg-blinkit-green', 'bg-white');
+          c.querySelector('.rounded-full').classList.replace('border-zepto', 'border-gray-300');
+          c.querySelector('.rounded-full div').classList.replace('bg-zepto-purple', 'bg-white');
         });
         
         // Add selected class to clicked card
         card.classList.add('selected');
-        card.querySelector('.rounded-full').classList.replace('border-gray-300', 'border-blinkit');
-        card.querySelector('.rounded-full div').classList.replace('bg-white', 'bg-blinkit-green');
+        card.querySelector('.rounded-full').classList.replace('border-gray-300', 'border-zepto');
+        card.querySelector('.rounded-full div').classList.replace('bg-white', 'bg-zepto-purple');
         
         // Update selected payment method
         selectedPaymentMethod = card.dataset.payment;
@@ -682,7 +678,7 @@
     
     function updateQRCode(amount) {
       // Generate QR code URL with the payment amount
-      const qrData = `upi://pay?pa=razorpay@okaxis&pn=BlinkitClone&am=${amount.toFixed(2)}&cu=INR`;
+      const qrData = `upi://pay?pa=zepto@hdfcbank&pn=ZeptoClone&am=${amount.toFixed(2)}&cu=INR`;
       qrCodeImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
     }
     
@@ -745,7 +741,7 @@
             orderId: order.id,
             amount: cartTotal,
             estimatedDelivery: order.estimatedDelivery,
-            platform: 'blinkit'
+            platform: 'zepto'
           });
           
           // Start simulating order updates
@@ -796,11 +792,11 @@
     function simulateOrderUpdates(orderId) {
       // Simulate order status updates
       const statusUpdates = [
-        { status: 'preparing', message: 'Your order is being prepared', delay: 10000 },
-        { status: 'packed', message: 'Your order has been packed', delay: 15000 },
-        { status: 'dispatched', message: 'Your order has been dispatched', delay: 20000 },
-        { status: 'out_for_delivery', message: 'Your order is out for delivery', delay: 30000 },
-        { status: 'delivered', message: 'Your order has been delivered', delay: 40000 }
+        { status: 'preparing', message: 'Order confirmed & being prepared', delay: 8000 },
+        { status: 'packed', message: 'Your order is packed & ready', delay: 12000 },
+        { status: 'dispatched', message: 'Order dispatched with delivery partner', delay: 16000 },
+        { status: 'out_for_delivery', message: 'Your order is arriving soon', delay: 22000 },
+        { status: 'delivered', message: 'Your order has been delivered', delay: 30000 }
       ];
       
       statusUpdates.forEach((update, index) => {
@@ -851,3 +847,5 @@
       }
     }
   </script>
+</body>
+</html>

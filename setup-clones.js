@@ -1,182 +1,168 @@
-// setup-clones.js
-// Updated script to set up platform clones for the price comparison app
+// setup.js
+// Script to initialize and check the application setup
 
-import fs from 'fs';
-import path from 'path';
-import { execSync } from 'child_process';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import fs from 'fs'
+import path from 'path'
+import { execSync } from 'child_process'
+import dotenv from 'dotenv'
 
 // Load environment variables
-dotenv.config();
+dotenv.config()
 
-// Set up __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+console.log('🚀 Setting up PriceWise application...')
 
-// Clone folder paths
-const BLINKIT_CLONE_PATH = path.join(__dirname, 'blinkit-clone');
-const ZEPTO_CLONE_PATH = path.join(__dirname, 'zepto-clone');
+// Check for .env file and create if needed
+const envPath = path.resolve(process.cwd(), '.env')
+if (!fs.existsSync(envPath)) {
+  console.log('⚠️ .env file not found. Creating default configuration...')
+  const envContent = `# API URL with proper protocol
+VITE_API_URL=http://localhost:5000/api/products
 
-// Function to create directory if it doesn't exist
-function createDirIfNotExists(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    console.log(`Creating directory: ${dirPath}`);
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
+# MongoDB URI - using your existing MongoDB connection
+MONGO_URI=mongodb+srv://mahadevadmahadev78:mahadeva@cluster0.7j3av.mongodb.net/?retryWrites=true&w=majority&appname=Cluster0
+
+# Server ports
+BACKEND_PORT=5000
+BLINKIT_PORT=3001
+ZEPTO_PORT=3002
+SWIGGY_PORT=3003
+BIGBASKET_PORT=3004
+DUNZO_PORT=3005
+
+# Server environment
+NODE_ENV=development
+
+# Platform URLs for integration
+BLINKIT_CLONE_URL=http://localhost:3001
+ZEPTO_CLONE_URL=http://localhost:3002`
+
+  fs.writeFileSync(envPath, envContent)
+  console.log('✅ Created .env file with default configuration')
 }
 
-// Function to create file with content
-function createFile(filePath, content) {
-  console.log(`Creating file: ${filePath}`);
-  fs.writeFileSync(filePath, content);
-}
-
-// Setup Blinkit Clone
-function setupBlinkitClone() {
-  console.log('Setting up Blinkit Clone...');
+// Setup platform clone directories
+const setupClones = () => {
+  const cloneDirs = [
+    {name: 'blinkit-clone', port: 3001},
+    {name: 'zepto-clone', port: 3002}
+  ]
   
-  // Create clone directory
-  createDirIfNotExists(BLINKIT_CLONE_PATH);
-  createDirIfNotExists(path.join(BLINKIT_CLONE_PATH, 'public'));
-  
-  // Create index.js with content directly
-  const indexJsContent = fs.readFileSync(path.join(__dirname, 'blinkit-clone-index.js'), 'utf8');
-  createFile(path.join(BLINKIT_CLONE_PATH, 'index.js'), indexJsContent);
-  
-  // Create index.html
-  const indexHtmlContent = fs.readFileSync(path.join(__dirname, 'blinkit-index-html.html'), 'utf8');
-  createFile(path.join(BLINKIT_CLONE_PATH, 'public', 'index.html'), indexHtmlContent);
-  
-  // Create checkout.html
-  const checkoutHtmlContent = fs.readFileSync(path.join(__dirname, 'blinkit-checkout-html.html'), 'utf8');
-  createFile(path.join(BLINKIT_CLONE_PATH, 'public', 'checkout.html'), checkoutHtmlContent);
-  
-  // Create package.json
-  const packageJsonContent = `{
-  "name": "blinkit-clone",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2"
-  }
-}`;
-  createFile(path.join(BLINKIT_CLONE_PATH, 'package.json'), packageJsonContent);
-  
-  console.log('Blinkit Clone setup complete.');
-}
-
-// Setup Zepto Clone
-function setupZeptoClone() {
-  console.log('Setting up Zepto Clone...');
-  
-  // Create clone directory
-  createDirIfNotExists(ZEPTO_CLONE_PATH);
-  createDirIfNotExists(path.join(ZEPTO_CLONE_PATH, 'public'));
-  
-  // Create index.js
-  const indexJsContent = fs.readFileSync(path.join(__dirname, 'zepto-clone-index.js'), 'utf8');
-  createFile(path.join(ZEPTO_CLONE_PATH, 'index.js'), indexJsContent);
-  
-  // Create index.html
-  const indexHtmlContent = fs.readFileSync(path.join(__dirname, 'zepto-index-html.html'), 'utf8');
-  createFile(path.join(ZEPTO_CLONE_PATH, 'public', 'index.html'), indexHtmlContent);
-  
-  // Create checkout.html
-  const checkoutHtmlContent = fs.readFileSync(path.join(__dirname, 'zepto-checkout-html.html'), 'utf8');
-  createFile(path.join(ZEPTO_CLONE_PATH, 'public', 'checkout.html'), checkoutHtmlContent);
-  
-  // Create package.json
-  const packageJsonContent = `{
-  "name": "zepto-clone",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2"
-  }
-}`;
-  createFile(path.join(ZEPTO_CLONE_PATH, 'package.json'), packageJsonContent);
-  
-  console.log('Zepto Clone setup complete.');
-}
-
-// Install dependencies for clones
-function installDependencies() {
-  console.log('Installing dependencies for Blinkit Clone...');
-  try {
-    execSync('cd blinkit-clone && npm install', { stdio: 'inherit' });
-    console.log('Blinkit Clone dependencies installed successfully');
+  cloneDirs.forEach(clone => {
+    const cloneDir = path.resolve(process.cwd(), clone.name)
     
-    console.log('Installing dependencies for Zepto Clone...');
-    execSync('cd zepto-clone && npm install', { stdio: 'inherit' });
-    console.log('Zepto Clone dependencies installed successfully');
-  } catch (error) {
-    console.error('Error installing dependencies:', error);
-  }
+    // Check if directory exists
+    if (!fs.existsSync(cloneDir)) {
+      console.log(`⚠️ ${clone.name} directory not found. Creating...`)
+      fs.mkdirSync(cloneDir)
+      fs.mkdirSync(path.join(cloneDir, 'public'))
+      
+      // Copy necessary files from existing files in the repository
+      try {
+        const files = [
+          {src: `${clone.name}/index.js`, dest: 'index.js'},
+          {src: `${clone.name}/package.json`, dest: 'package.json'},
+          {src: `${clone.name}/public/index.html`, dest: 'public/index.html'},
+          {src: `${clone.name}/public/checkout.html`, dest: 'public/checkout.html'}
+        ]
+        
+        files.forEach(file => {
+          const srcPath = path.resolve(process.cwd(), file.src)
+          const destPath = path.join(cloneDir, file.dest)
+          
+          if (fs.existsSync(srcPath)) {
+            fs.copyFileSync(srcPath, destPath)
+            console.log(`Copied ${file.src} to ${file.dest}`)
+          } else {
+            console.error(`Source file not found: ${file.src}`)
+          }
+        })
+        
+        console.log(`✅ ${clone.name} directory created and files copied`)
+      } catch (err) {
+        console.error(`Error setting up ${clone.name}:`, err.message)
+      }
+    } else {
+      console.log(`✅ ${clone.name} directory found`)
+    }
+  })
 }
 
-// Main function
-async function main() {
-  console.log('🚀 Setting up platform clones for PriceWise...');
-  
+// Ensure MongoDB is running
+const checkMongoDB = () => {
+  console.log('Checking MongoDB connection...')
   try {
-    // First, check if the source files exist
-    if (!fs.existsSync(path.join(__dirname, 'blinkit-clone-index.js'))) {
-      console.log('Creating source files first...');
-      
-      // Create Blinkit source files
-      createFile(path.join(__dirname, 'blinkit-clone-index.js'), fs.readFileSync(path.join(__dirname, 'blinkit-clone/index.js'), 'utf8'));
-      createFile(path.join(__dirname, 'blinkit-index-html.html'), fs.readFileSync(path.join(__dirname, 'blinkit-clone/public/index.html'), 'utf8'));
-      createFile(path.join(__dirname, 'blinkit-checkout-html.html'), fs.readFileSync(path.join(__dirname, 'blinkit-clone/public/checkout.html'), 'utf8'));
-      
-      // Create Zepto source files
-      createFile(path.join(__dirname, 'zepto-clone-index.js'), fs.readFileSync(path.join(__dirname, 'zepto-clone/index.js'), 'utf8'));
-      createFile(path.join(__dirname, 'zepto-index-html.html'), fs.readFileSync(path.join(__dirname, 'zepto-clone/public/index.html'), 'utf8'));
-      createFile(path.join(__dirname, 'zepto-checkout-html.html'), fs.readFileSync(path.join(__dirname, 'zepto-clone/public/checkout.html'), 'utf8'));
-    } else {
-      console.log('Source files found, proceeding with setup...');
+    // Simple check for MongoDB connection string
+    const mongoUri = process.env.MONGO_URI
+    if (!mongoUri) {
+      console.error('❌ MongoDB URI not found in .env file')
+      return false
     }
     
-    // Set up Blinkit Clone
-    setupBlinkitClone();
-    
-    // Set up Zepto Clone
-    setupZeptoClone();
-    
-    // Install dependencies
-    installDependencies();
-    
-    console.log('\n✅ Setup complete! You can now run the platform clones with:');
-    console.log('npm run blinkit-clone     # Starts the Blinkit clone on port 3001');
-    console.log('npm run zepto-clone       # Starts the Zepto clone on port 3002');
-    console.log('npm run start:full        # Starts the main app along with all platform clones');
-  } catch (error) {
-    console.error('Setup failed:', error);
-    
-    // Provide alternative setup instructions
-    console.log('\n⚠️ Automated setup failed. Please follow these manual steps:');
-    console.log('1. Create folders "blinkit-clone" and "zepto-clone"');
-    console.log('2. Create a "public" subfolder in each clone folder');
-    console.log('3. Copy the index.js, index.html, and checkout.html files to their respective locations');
-    console.log('4. Run "npm install" in each clone folder');
-    console.log('5. Run "npm run start:full" to start all services');
+    console.log('✅ MongoDB URI found in configuration')
+    return true
+  } catch (err) {
+    console.error('Error checking MongoDB:', err.message)
+    return false
   }
 }
 
-// Run the main function
-main().catch(error => {
-  console.error('Setup failed:', error);
-  process.exit(1);
-});
+// Check if backend dependencies are installed
+const checkDependencies = () => {
+  console.log('Checking dependencies...')
+  
+  // Check for node_modules
+  if (!fs.existsSync(path.resolve(process.cwd(), 'node_modules'))) {
+    console.log('⚠️ node_modules not found, installing dependencies...')
+    try {
+      execSync('npm install', { stdio: 'inherit' })
+      console.log('✅ Dependencies installed')
+    } catch (err) {
+      console.error('❌ Failed to install dependencies:', err.message)
+      return false
+    }
+  } else {
+    console.log('✅ node_modules found')
+  }
+  
+  return true
+}
+
+// Generate mock data for development
+const generateMockData = () => {
+  console.log('Setting up mock data...')
+  try {
+    execSync('node generateMockData.js', { stdio: 'inherit' })
+    console.log('✅ Mock data setup complete')
+    return true
+  } catch (err) {
+    console.error('❌ Failed to generate mock data:', err.message)
+    return false
+  }
+}
+
+// Main setup function
+const runSetup = async () => {
+  try {
+    // Run setup steps
+    setupClones()
+    const mongoOk = checkMongoDB() 
+    const depsOk = checkDependencies()
+    
+    if (mongoOk && depsOk) {
+      console.log('\n✅ Initial setup complete!')
+      console.log('\nTo start the application:')
+      console.log('1. npm run backend:only     # Start the backend server')
+      console.log('2. npm run dev              # Start the frontend development server')
+      console.log('\nOr use the all-in-one command:')
+      console.log('npm run start               # Start both backend and frontend')
+      
+      // Offer to generate mock data
+      console.log('\nDo you want to generate mock data? (This will be done automatically when you start the server)')
+    }
+  } catch (err) {
+    console.error('Setup failed:', err.message)
+  }
+}
+
+// Run the setup
+runSetup()
