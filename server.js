@@ -1,9 +1,10 @@
-// server.js
+// server.js (CORS Fixed)
 
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./src/confiq/db.js";
+import checkAndUpdatePort from "./check-port.js";
 
 // Import routes
 import productRoutes from "./src/routes/products.js";
@@ -13,31 +14,37 @@ import cartRoutes from "./src/routes/cart.js";
 // Configure environment variables
 dotenv.config();
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Setup CORS with very permissive settings
+// CORS configuration - FIXED
+const corsOptions = {
+  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control']
+};
+
+// Apply CORS middleware with appropriate options
+app.use(cors(corsOptions));
+
+// Add headers middleware for additional flexibility
 app.use((req, res, next) => {
-  // Allow any origin
-  res.header("Access-Control-Allow-Origin", "*");
-  // Allow common headers
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  // Allow common methods
+  // Allow specific origins
+  res.header("Access-Control-Allow-Origin", req.headers.origin || '*');
+  // Allow credentials
+  res.header("Access-Control-Allow-Credentials", "true");
+  // Allow specific headers
+  res.header("Access-Control-Allow-Headers", 
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control");
+  // Allow specific methods
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   
-  // Handle preflight
+  // Handle preflight requests
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
   
   next();
 });
-
-// Also use the cors middleware as a belt-and-suspenders approach
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
 
 // Parse JSON requests
 app.use(express.json());
@@ -120,9 +127,22 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start the server
-// By using '0.0.0.0' we allow connections from any network interface
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`API endpoint: http://localhost:${PORT}/api/products`);
-});
+// Start the server with automatic port handling
+async function startServer() {
+  try {
+    // Check for available port
+    const PORT = await checkAndUpdatePort() || process.env.PORT || 5000;
+    
+    // Start the server on the available port
+    // By using '0.0.0.0' we allow connections from any network interface
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`API endpoint: http://localhost:${PORT}/api/products`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

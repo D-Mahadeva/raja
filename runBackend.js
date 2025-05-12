@@ -1,6 +1,9 @@
+// runBackend.js (Updated)
+
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import dotenv from 'dotenv';
+import checkAndUpdatePort from './check-port.js';
 
 dotenv.config();
 
@@ -9,6 +12,17 @@ const execAsync = promisify(exec);
 async function runBackend() {
   try {
     console.log('🚀 Starting backend preparation...');
+    
+    // Check for available port first
+    console.log('Checking for available port...');
+    const availablePort = await checkAndUpdatePort();
+    
+    if (!availablePort) {
+      console.error('❌ Could not find an available port. Please manually close any applications using port 5000.');
+      process.exit(1);
+    }
+    
+    console.log(`✅ Will use port: ${availablePort}`);
     
     // Setup mock data instead of using scrapers if using local MongoDB
     const useLocalMongoDB = process.env.MONGO_URI?.includes('localhost') || false;
@@ -72,9 +86,9 @@ async function runBackend() {
       console.log('Trying to continue with server startup...');
     }
     
-    // Start the server
-    console.log('🚀 Starting server...');
-    exec('node server.js', (error, stdout, stderr) => {
+    // Start the server with environment variables
+    console.log(`🚀 Starting server on port ${availablePort}...`);
+    exec(`set PORT=${availablePort} && node server.js`, (error, stdout, stderr) => {
       if (error) {
         console.error(`❌ Error starting server: ${error.message}`);
         return;

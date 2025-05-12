@@ -17,7 +17,9 @@
     "match-products": "node productMatcher.js",
     "start": "concurrently \"npm run backend:only\" \"npm run dev\"",
     "test-api": "node test-api.js",
-    "check-port": "node check-port.js"
+    "check-port": "node check-port.js",
+    "kill-port": "node kill-port.js",
+    "fix-port": "node kill-port.js && node check-port.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
