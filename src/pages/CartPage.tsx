@@ -4,15 +4,29 @@ import { useShop, Platform, CartItem as CartItemType } from '@/context/ShopConte
 import Header from '@/components/Header';
 import CartItem from '@/components/CartItem';
 import PriceComparison from '@/components/PriceComparison';
-import { ArrowLeft, ShoppingCart, ArrowRight, Filter, X, TagIcon } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, ArrowRight, Filter, X, TagIcon, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  formatCheckoutData, 
+  openCheckoutTab, 
+  listenForOrderUpdates, 
+  getOrderStatuses 
+} from '@/lib/checkout-bridge';
+
+// Configuration for clone apps
+const CHECKOUT_CONFIG = {
+  blinkitUrl: 'http://localhost:3001',
+  zeptoUrl: 'http://localhost:3002'
+};
 
 const CartPage = () => {
   const { cart, getCartTotal, platforms } = useShop();
   const [checkoutPlatform, setCheckoutPlatform] = useState<Platform | null>(null);
+  const [checkoutInProgress, setCheckoutInProgress] = useState(false);
+  const [recentOrders, setRecentOrders] = useState([]);
   const { toast } = useToast();
   
   // Group cart items by platform
@@ -64,6 +78,34 @@ const CartPage = () => {
     return totals;
   }, [groupedCartItems, checkoutPlatform]);
   
+  // Listen for order status updates
+  useEffect(() => {
+    // Load initial order statuses
+    const initialOrders = getOrderStatuses();
+    setRecentOrders(initialOrders);
+    
+    // Set up listener for future updates
+    const removeListener = listenForOrderUpdates((orderStatus) => {
+      setRecentOrders(prev => [orderStatus, ...prev].slice(0, 10));
+      
+      // Show a toast notification for the update
+      toast({
+        title: `Order Update: ${orderStatus.orderId}`,
+        description: orderStatus.status === 'delivered' 
+          ? `Your order has been delivered!` 
+          : `Status: ${orderStatus.status} - ${orderStatus.message}`,
+        variant: orderStatus.status === 'failed' ? 'destructive' : 'default',
+      });
+      
+      // If the order was successfully placed, reset checkout progress
+      if (orderStatus.status === 'confirmed' || orderStatus.status === 'delivered') {
+        setCheckoutInProgress(false);
+      }
+    });
+    
+    return () => removeListener();
+  }, [toast]);
+  
   const handleCheckout = () => {
     if (!checkoutPlatform) {
       toast({
@@ -74,11 +116,29 @@ const CartPage = () => {
       return;
     }
     
-    toast({
-      title: "Checkout initiated",
-      description: `Your order from ${checkoutPlatform} is being processed`,
-    });
-    // In a real app, we would redirect to checkout page
+    try {
+      // Prepare checkout data
+      const checkoutData = formatCheckoutData(cart, checkoutPlatform);
+      
+      // Track checkout in progress
+      setCheckoutInProgress(true);
+      
+      // Open the checkout tab
+      openCheckoutTab(checkoutData, CHECKOUT_CONFIG);
+      
+      toast({
+        title: "Checkout initiated",
+        description: `Please complete your order in the new tab. If no tab opened, check your pop-up blocker.`,
+      });
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast({
+        title: "Checkout failed",
+        description: error.message || "There was an error initiating checkout.",
+        variant: "destructive",
+      });
+      setCheckoutInProgress(false);
+    }
   };
 
   if (cart.length === 0) {
@@ -279,15 +339,84 @@ const CartPage = () => {
                 </div>
                 
                 <Button 
-                  className="w-full bg-black hover:bg-black/80 text-white"
-                  disabled={!checkoutPlatform}
+                  className={`w-full ${
+                    checkoutPlatform && !checkoutInProgress 
+                      ? `bg-platform-${checkoutPlatform} hover:bg-platform-${checkoutPlatform}/90`
+                      : "bg-black/80 hover:bg-black/70"
+                  } text-white`}
+                  disabled={!checkoutPlatform || checkoutInProgress}
                   onClick={handleCheckout}
                 >
-                  Proceed to Checkout
-                  <ArrowRight size={16} className="ml-1.5" />
+                  {checkoutInProgress ? (
+                    <>Checkout in Progress...</>
+                  ) : (
+                    <>
+                      Proceed to Checkout
+                      <ExternalLink size={16} className="ml-1.5" />
+                    </>
+                  )}
                 </Button>
+                
+                {checkoutInProgress && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Please complete your order in the new tab
+                  </p>
+                )}
               </div>
             </motion.div>
+            
+            {/* Recent Orders */}
+            <AnimatePresence>
+              {recentOrders.length > 0 && (
+                <motion.div 
+                  className="rounded-lg border border-gray-200 overflow-hidden"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <h3 className="font-medium">Recent Orders</h3>
+                  </div>
+                  
+                  <div className="divide-y divide-gray-200">
+                    {recentOrders.map((order, index) => (
+                      <div key={`${order.orderId}-${index}`} className="p-3 bg-white">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-medium text-sm">Order {order.orderId}</span>
+                          <Badge
+                            variant={
+                              order.status === 'delivered' ? 'success' :
+                              order.status === 'confirmed' ? 'outline' :
+                              order.status === 'failed' ? 'destructive' : 'secondary'
+                            }
+                            className="text-xs"
+                          >
+                            {order.status}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>
+                            {new Date(order.timestamp).toLocaleString()}
+                          </span>
+                          <span className={`platform-${order.platform}`}>
+                            {platforms.find(p => p.id === order.platform)?.name}
+                          </span>
+                        </div>
+                        {order.deliveryTime && (
+                          <div className="text-xs text-green-600 mt-1 flex items-center">
+                            <Clock size={12} className="mr-1" />
+                            {order.deliveryTime}
+                          </div>
+                        )}
+                        {order.message && (
+                          <div className="text-xs mt-1">{order.message}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </main>

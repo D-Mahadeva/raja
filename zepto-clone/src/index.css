@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --zepto-purple: #8025fb;
+  --zepto-light-purple: #f0e6fd;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f9f9f9;
+  color: #1c1c1c;
+}
+
+.zepto-primary {
+  color: var(--zepto-purple);
+}
+
+.zepto-bg {
+  background-color: var(--zepto-purple);
+}
+
+.zepto-bg-light {
+  background-color: var(--zepto-light-purple);
+}
+
+.zepto-border {
+  border-color: var(--zepto-purple);
+}
