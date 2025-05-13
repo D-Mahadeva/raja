@@ -1,4 +1,4 @@
-// src/lib/checkout-bridge.js - UPDATED for better data sharing
+// src/lib/checkout-bridge.js - UPDATED for better data sharing and Razorpay integration
 
 /**
  * Formats cart data to be shared between applications
@@ -129,7 +129,28 @@ export const getPendingCheckout = () => {
     console.error("Error retrieving from localStorage:", e);
   }
   
-  // 3. Try the global variable as a last resort
+  // 3. Try to find a broadcast message in localStorage
+  try {
+    const keys = Object.keys(localStorage);
+    const broadcastKeys = keys.filter(key => key.startsWith('checkout_broadcast_'));
+    
+    if (broadcastKeys.length > 0) {
+      // Sort by timestamp to get the most recent
+      broadcastKeys.sort().reverse();
+      const latestKey = broadcastKeys[0];
+      const broadcastData = localStorage.getItem(latestKey);
+      
+      if (broadcastData) {
+        data = JSON.parse(broadcastData);
+        console.log("Found checkout data in broadcast key:", data);
+        return data;
+      }
+    }
+  } catch (e) {
+    console.error("Error retrieving from broadcast keys:", e);
+  }
+  
+  // 4. Try the global variable as a last resort
   try {
     if (window._pendingCheckoutData) {
       console.log("Found checkout data in global variable:", window._pendingCheckoutData);
@@ -153,6 +174,13 @@ export const clearPendingCheckout = () => {
   try {
     delete window._pendingCheckoutData;
   } catch (e) {}
+  
+  // Also clear any broadcast keys
+  try {
+    const keys = Object.keys(localStorage);
+    const broadcastKeys = keys.filter(key => key.startsWith('checkout_broadcast_'));
+    broadcastKeys.forEach(key => localStorage.removeItem(key));
+  } catch (e) {}
 };
 
 /**
@@ -164,9 +192,24 @@ export const updateOrderStatus = (orderStatus) => {
   const updatedOrders = [orderStatus, ...existingOrders].slice(0, 10); // Keep last 10 orders
   localStorage.setItem('order_statuses', JSON.stringify(updatedOrders));
   
+  // Also store in sessionStorage for redundancy
+  sessionStorage.setItem('order_statuses', JSON.stringify(updatedOrders));
+  
   // Also dispatch a custom event that the comparison app can listen for
   const event = new CustomEvent('order_status_update', { detail: orderStatus });
   window.dispatchEvent(event);
+  
+  // Broadcast to opener window if available
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        type: 'ORDER_STATUS_UPDATE',
+        data: orderStatus
+      }, '*');
+    }
+  } catch (e) {
+    console.error("Error broadcasting to opener:", e);
+  }
   
   console.log("Order status updated:", orderStatus);
 };
@@ -176,6 +219,14 @@ export const updateOrderStatus = (orderStatus) => {
  * @return {Array} Recent order statuses
  */
 export const getOrderStatuses = () => {
+  // Try sessionStorage first
+  try {
+    const sessionData = sessionStorage.getItem('order_statuses');
+    if (sessionData) {
+      return JSON.parse(sessionData);
+    }
+  } catch (e) {}
+  // Fall back to localStorage
   return JSON.parse(localStorage.getItem('order_statuses') || '[]');
 };
 

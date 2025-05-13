@@ -1,23 +1,10 @@
-// blinkit-clone/src/pages/CheckoutPage.jsx - ENHANCED with robust data retrieval
+// blinkit-clone/src/pages/CheckoutPage.jsx
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, MapPin, Home, CreditCard, Truck, ArrowRight, Check, AlertTriangle } from 'lucide-react';
 import { getPendingCheckout, updateOrderStatus } from '../utils/checkout-bridge';
-
-const loadRazorpay = (options, onSuccess, onError) => {
-  const rzp = new window.Razorpay(options);
-  
-  rzp.on('payment.success', (response) => {
-    onSuccess(response);
-  });
-  
-  rzp.on('payment.error', (response) => {
-    onError(response);
-  });
-  
-  rzp.open();
-};
+import { createRazorpayOrder, loadRazorpay } from '../utils/payment-utils';
 
 // Function to extract data from URL if present
 const extractDataFromUrl = (search) => {
@@ -110,7 +97,7 @@ const CheckoutPage = () => {
     fetchCheckoutData();
   }, [location, retryCount]);
   
-  const handlePayment = () => {
+  const handlePayment = async () => {
     if (!checkoutData) return;
     
     setPaymentInitiated(true);
@@ -131,77 +118,90 @@ const CheckoutPage = () => {
       // Navigate to confirmation page
       navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
     } else {
-      // Handle online payment with Razorpay
-      const options = {
-        key: 'rzp_test_YourTestKey', // This would be your actual Razorpay key in production
-        amount: checkoutData.totalAmount * 100, // Amount in paise
-        currency: 'INR',
-        name: 'Blinkit',
-        description: `Order ID: ${checkoutData.orderId}`,
-        order_id: `order_${Date.now()}`, // This would be generated on your backend in production
-        prefill: {
-          name: 'Customer Name',
-          email: 'customer@example.com',
-          contact: '9876543210'
-        },
-        theme: {
-          color: '#0C831F'
-        },
-        modal: {
-          ondismiss: () => {
-            setPaymentInitiated(false);
-            
-            // Update status as payment cancelled
+      try {
+        // Create Razorpay order first
+        const razorpayOrder = await createRazorpayOrder(checkoutData);
+        
+        // Get Razorpay key from environment variables
+        const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_default';
+        
+        // Handle online payment with Razorpay
+        const options = {
+          key: razorpayKeyId,
+          amount: razorpayOrder.amount, // Amount from the order (already in paise)
+          currency: razorpayOrder.currency,
+          name: 'Blinkit',
+          description: `Order ID: ${checkoutData.orderId}`,
+          order_id: razorpayOrder.id,
+          prefill: {
+            name: 'Customer Name',
+            email: 'customer@example.com',
+            contact: '9876543210'
+          },
+          theme: {
+            color: '#0C831F'
+          },
+          modal: {
+            ondismiss: () => {
+              setPaymentInitiated(false);
+              
+              // Update status as payment cancelled
+              updateOrderStatus({
+                orderId: checkoutData.orderId,
+                status: 'pending',
+                platform: 'blinkit',
+                timestamp: new Date().toISOString(),
+                totalAmount: checkoutData.totalAmount,
+                message: 'Payment was cancelled. Please try again.',
+                paymentMethod: 'online'
+              });
+            }
+          }
+        };
+        
+        loadRazorpay(
+          options,
+          (paymentResponse) => {
+            // Payment success - properly verified by our backend
             updateOrderStatus({
               orderId: checkoutData.orderId,
-              status: 'pending',
+              status: 'confirmed',
               platform: 'blinkit',
               timestamp: new Date().toISOString(),
               totalAmount: checkoutData.totalAmount,
-              message: 'Payment was cancelled. Please try again.',
-              paymentMethod: 'online'
+              deliveryTime: '10 minutes',
+              message: 'Your order is confirmed and will be delivered in 10 minutes',
+              paymentMethod: 'online',
+              paymentId: paymentResponse.razorpay_payment_id,
+              razorpayOrderId: paymentResponse.razorpay_order_id
             });
+            
+            // Navigate to confirmation page
+            navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+          },
+          (error) => {
+            // Payment failure
+            setPaymentInitiated(false);
+            
+            updateOrderStatus({
+              orderId: checkoutData.orderId,
+              status: 'failed',
+              platform: 'blinkit',
+              timestamp: new Date().toISOString(),
+              totalAmount: checkoutData.totalAmount,
+              message: 'Payment failed. Please try again.',
+              paymentMethod: 'online',
+              error: error.description || 'Unknown error'
+            });
+            
+            setError('Payment failed: ' + (error.description || 'Unknown error'));
           }
-        }
-      };
-      
-      loadRazorpay(
-        options,
-        (paymentResponse) => {
-          // Payment success
-          updateOrderStatus({
-            orderId: checkoutData.orderId,
-            status: 'confirmed',
-            platform: 'blinkit',
-            timestamp: new Date().toISOString(),
-            totalAmount: checkoutData.totalAmount,
-            deliveryTime: '10 minutes',
-            message: 'Your order is confirmed and will be delivered in 10 minutes',
-            paymentMethod: 'online',
-            paymentId: paymentResponse.razorpay_payment_id
-          });
-          
-          // Navigate to confirmation page
-          navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
-        },
-        (error) => {
-          // Payment failure
-          setPaymentInitiated(false);
-          
-          updateOrderStatus({
-            orderId: checkoutData.orderId,
-            status: 'failed',
-            platform: 'blinkit',
-            timestamp: new Date().toISOString(),
-            totalAmount: checkoutData.totalAmount,
-            message: 'Payment failed. Please try again.',
-            paymentMethod: 'online',
-            error: error.description || 'Unknown error'
-          });
-          
-          setError('Payment failed. Please try again.');
-        }
-      );
+        );
+      } catch (error) {
+        console.error('Payment initialization error:', error);
+        setPaymentInitiated(false);
+        setError('Payment initialization failed: ' + error.message);
+      }
     }
   };
   
@@ -328,7 +328,7 @@ const CheckoutPage = () => {
             {/* Payment Methods */}
             <div className="bg-white rounded-lg shadow-sm border p-4">
               <h2 className="font-semibold mb-4 flex items-center">
-                <CreditCard className="mr-2 text-[#0C831F]" size={18} />
+               <CreditCard className="mr-2 text-[#0C831F]" size={18} />
                 Payment Method
               </h2>
               

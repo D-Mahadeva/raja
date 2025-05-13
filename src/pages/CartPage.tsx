@@ -55,7 +55,7 @@ const CartPage = () => {
   const platformTotals = React.useMemo(() => {
     const totals: Record<string, number> = {};
     
-    Object.entries(groupedCartItems).forEach(([platform, items]) => {
+    Object.entries(groupedCartItems).map(([platform, items]) => {
       if (items.length === 0) return;
       
       // Calculate platform-specific total
@@ -117,6 +117,21 @@ const CartPage = () => {
     }
     
     try {
+      // Check if there are available items for this platform
+      const availableItems = cart.filter(item => {
+        const priceInfo = item.product.prices.find(p => p.platform === checkoutPlatform);
+        return priceInfo && priceInfo.available;
+      });
+      
+      if (availableItems.length === 0) {
+        toast({
+          title: "No available items",
+          description: `No items are available for ${platforms.find(p => p.id === checkoutPlatform)?.name}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Prepare checkout data
       const checkoutData = formatCheckoutData(cart, checkoutPlatform);
       
@@ -275,7 +290,7 @@ const CartPage = () => {
                       </div>
                       
                       {/* Platform subtotal */}
-                      {items.length > 0 && (
+                      {items.length > 0 && platformTotals[platform] > 0 && (
                         <div className="px-4 py-3 bg-gray-50">
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -404,7 +419,6 @@ const CartPage = () => {
                         </div>
                         {order.deliveryTime && (
                           <div className="text-xs text-green-600 mt-1 flex items-center">
-                            <Clock size={12} className="mr-1" />
                             {order.deliveryTime}
                           </div>
                         )}

@@ -1,5 +1,3 @@
-// src/pages/Index.tsx
-
 import React, { useEffect, useState } from 'react';
 import { useShop } from '@/context/ShopContext';
 import Header from '@/components/Header';
@@ -262,9 +260,7 @@ const Index = () => {
               ))}
             </motion.div>
           )}
-        </AnimatePresence>
-        
-        // src/pages/Index.tsx (continued)
+        </AnimatePresence>        
 
 {/* Empty State */}
 <AnimatePresence>

@@ -1,4 +1,4 @@
-// server.js (CORS Fixed)
+// server.js (Update existing file)
 
 import express from "express";
 import dotenv from "dotenv";
@@ -10,14 +10,15 @@ import checkAndUpdatePort from "./check-port.js";
 import productRoutes from "./src/routes/products.js";
 import userRoutes from "./src/routes/users.js";
 import cartRoutes from "./src/routes/cart.js";
+import paymentRoutes from "./src/routes/payments.js"; // ADD THIS LINE
 
 // Configure environment variables
 dotenv.config();
 const app = express();
 
-// CORS configuration - FIXED
+// CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  origin: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:3001', 'http://localhost:3002'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control']
@@ -68,54 +69,11 @@ connectDB().then(() => {
   console.error("MongoDB Connection Failed:", err);
 });
 
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "API is running", 
-    time: new Date().toISOString(),
-    ip: req.ip,
-    headers: req.headers,
-    cors: {
-      allowOrigin: res.getHeader('Access-Control-Allow-Origin'),
-      allowMethods: res.getHeader('Access-Control-Allow-Methods'),
-      allowHeaders: res.getHeader('Access-Control-Allow-Headers')
-    }
-  });
-});
-
-// Debug endpoint
-app.get("/api/debug", (req, res) => {
-  res.json({ 
-    message: "API is working",
-    time: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    clientIp: req.ip,
-    headers: req.headers
-  });
-});
-
-// Root endpoint for basic testing
-app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head><title>PriceWise API</title></head>
-      <body>
-        <h1>PriceWise API is running!</h1>
-        <p>Try these endpoints:</p>
-        <ul>
-          <li><a href="/api/health">Health Check</a></li>
-          <li><a href="/api/debug">Debug Info</a></li>
-          <li><a href="/api/products">Products API</a></li>
-        </ul>
-      </body>
-    </html>
-  `);
-});
-
 // API Routes
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/payments", paymentRoutes); // ADD THIS LINE
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -134,7 +92,6 @@ async function startServer() {
     const PORT = await checkAndUpdatePort() || process.env.PORT || 5000;
     
     // Start the server on the available port
-    // By using '0.0.0.0' we allow connections from any network interface
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`API endpoint: http://localhost:${PORT}/api/products`);
