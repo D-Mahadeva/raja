@@ -1,4 +1,4 @@
-// src/lib/checkout-bridge.js
+// src/lib/checkout-bridge.js - UPDATED for better data sharing
 
 /**
  * Formats cart data to be shared between applications
@@ -7,6 +7,9 @@
  * @return {Object} Formatted cart data
  */
 export const formatCheckoutData = (cartItems, platform) => {
+  console.log("Formatting checkout data for platform:", platform);
+  console.log("Cart items:", cartItems);
+  
   if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
     throw new Error('Invalid cart data');
   }
@@ -30,14 +33,17 @@ export const formatCheckoutData = (cartItems, platform) => {
         category: item.product.category
       };
     });
-    
-  return {
+  
+  const data = {
     platform,
     items: formattedItems,
     timestamp: new Date().toISOString(),
     totalAmount: formattedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
     orderId: generateOrderId(platform)
   };
+  
+  console.log("Formatted checkout data:", data);
+  return data;
 };
 
 /**
@@ -54,35 +60,99 @@ export const generateOrderId = (platform) => {
 
 /**
  * Stores checkout data in localStorage for retrieval by clone apps
+ * Also uses sessionStorage for more reliable cross-tab communication
  * @param {Object} checkoutData - The formatted checkout data
  */
 export const storeCheckoutData = (checkoutData) => {
-  localStorage.setItem('pending_checkout', JSON.stringify(checkoutData));
+  // Store in both localStorage and sessionStorage for redundancy
+  const dataString = JSON.stringify(checkoutData);
+  localStorage.setItem('pending_checkout', dataString);
+  sessionStorage.setItem('pending_checkout', dataString);
   localStorage.setItem('checkout_timestamp', Date.now().toString());
-};
-
-/**
- * Retrieves pending checkout data
- * @return {Object|null} The checkout data or null if none exists
- */
-export const getPendingCheckout = () => {
-  const data = localStorage.getItem('pending_checkout');
-  if (!data) return null;
   
+  // Broadcast the data to other tabs/windows via storage event
   try {
-    return JSON.parse(data);
+    // Create a shared key with timestamp to ensure uniqueness
+    const broadcastKey = `checkout_broadcast_${Date.now()}`;
+    localStorage.setItem(broadcastKey, dataString);
+    
+    // Clean up after a delay to prevent localStorage from getting cluttered
+    setTimeout(() => {
+      localStorage.removeItem(broadcastKey);
+    }, 10000); // 10 seconds
+    
+    console.log("Checkout data stored and broadcast:", checkoutData);
   } catch (e) {
-    console.error('Failed to parse checkout data', e);
-    return null;
+    console.error("Error broadcasting checkout data:", e);
+  }
+  
+  // Create a global variable as a fallback method
+  try {
+    window._pendingCheckoutData = checkoutData;
+    console.log("Set global checkout data variable");
+  } catch (e) {
+    console.error("Failed to set global checkout data variable:", e);
   }
 };
 
 /**
- * Clears pending checkout data
+ * Retrieves pending checkout data from multiple sources
+ * @return {Object|null} The checkout data or null if none exists
+ */
+export const getPendingCheckout = () => {
+  console.log("Trying to retrieve checkout data");
+  
+  // Try multiple storage methods
+  let data = null;
+  
+  // 1. Try sessionStorage first (most reliable for same tab)
+  try {
+    const sessionData = sessionStorage.getItem('pending_checkout');
+    if (sessionData) {
+      data = JSON.parse(sessionData);
+      console.log("Found checkout data in sessionStorage:", data);
+      return data;
+    }
+  } catch (e) {
+    console.error("Error retrieving from sessionStorage:", e);
+  }
+  
+  // 2. Try localStorage second
+  try {
+    const localData = localStorage.getItem('pending_checkout');
+    if (localData) {
+      data = JSON.parse(localData);
+      console.log("Found checkout data in localStorage:", data);
+      return data;
+    }
+  } catch (e) {
+    console.error("Error retrieving from localStorage:", e);
+  }
+  
+  // 3. Try the global variable as a last resort
+  try {
+    if (window._pendingCheckoutData) {
+      console.log("Found checkout data in global variable:", window._pendingCheckoutData);
+      return window._pendingCheckoutData;
+    }
+  } catch (e) {
+    console.error("Error retrieving from global variable:", e);
+  }
+  
+  console.warn("No checkout data found in any storage mechanism");
+  return null;
+};
+
+/**
+ * Clears pending checkout data from all storage mechanisms
  */
 export const clearPendingCheckout = () => {
   localStorage.removeItem('pending_checkout');
+  sessionStorage.removeItem('pending_checkout');
   localStorage.removeItem('checkout_timestamp');
+  try {
+    delete window._pendingCheckoutData;
+  } catch (e) {}
 };
 
 /**
@@ -97,6 +167,8 @@ export const updateOrderStatus = (orderStatus) => {
   // Also dispatch a custom event that the comparison app can listen for
   const event = new CustomEvent('order_status_update', { detail: orderStatus });
   window.dispatchEvent(event);
+  
+  console.log("Order status updated:", orderStatus);
 };
 
 /**
@@ -108,28 +180,56 @@ export const getOrderStatuses = () => {
 };
 
 /**
- * Opens a clone app for checkout in a new tab
+ * Opens a clone app for checkout in a new tab with data sharing
  * @param {Object} checkoutData - The checkout data
  * @param {Object} config - Configuration including URLs
  */
 export const openCheckoutTab = (checkoutData, config) => {
-  // Store the checkout data first
+  // Store the checkout data first using multiple mechanisms
   storeCheckoutData(checkoutData);
   
   // Determine which URL to open based on the platform
   const platform = checkoutData.platform;
-  let checkoutUrl;
+  let baseUrl;
   
   if (platform === 'blinkit') {
-    checkoutUrl = config.blinkitUrl || 'http://localhost:3001/checkout';
+    baseUrl = config.blinkitUrl || 'http://localhost:3001';
   } else if (platform === 'zepto') {
-    checkoutUrl = config.zeptoUrl || 'http://localhost:3002/checkout';
+    baseUrl = config.zeptoUrl || 'http://localhost:3002';
   } else {
     throw new Error(`Unsupported platform: ${platform}`);
   }
   
-  // Open the checkout URL in a new tab
-  window.open(`${checkoutUrl}?orderId=${checkoutData.orderId}`, '_blank');
+  // Ensure the URL has the /checkout path
+  const checkoutUrl = `${baseUrl}/checkout`;
+  
+  // Add the checkout data to the URL as a base64 encoded query parameter
+  // This is a fallback mechanism in case localStorage communication fails
+  try {
+    const compressedData = btoa(JSON.stringify(checkoutData));
+    const url = `${checkoutUrl}?orderId=${checkoutData.orderId}&data=${encodeURIComponent(compressedData)}`;
+    
+    // Open the checkout URL in a new tab
+    console.log("Opening checkout URL:", url);
+    const newWindow = window.open(url, '_blank');
+    
+    // Try to directly pass the data to the new window as a second fallback
+    if (newWindow) {
+      try {
+        // Wait a moment for the new window to initialize
+        setTimeout(() => {
+          newWindow._checkoutData = checkoutData;
+          console.log("Directly passed checkout data to new window");
+        }, 500);
+      } catch (e) {
+        console.error("Failed to pass data directly to new window:", e);
+      }
+    }
+  } catch (e) {
+    // If encoding fails, fall back to the simple URL
+    console.error("Error encoding checkout data for URL:", e);
+    window.open(`${checkoutUrl}?orderId=${checkoutData.orderId}`, '_blank');
+  }
 };
 
 /**

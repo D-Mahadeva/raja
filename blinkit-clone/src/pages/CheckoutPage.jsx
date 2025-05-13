@@ -1,4 +1,5 @@
-// blinkit-clone/src/pages/CheckoutPage.jsx
+// blinkit-clone/src/pages/CheckoutPage.jsx - ENHANCED with robust data retrieval
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, MapPin, Home, CreditCard, Truck, ArrowRight, Check, AlertTriangle } from 'lucide-react';
@@ -18,6 +19,33 @@ const loadRazorpay = (options, onSuccess, onError) => {
   rzp.open();
 };
 
+// Function to extract data from URL if present
+const extractDataFromUrl = (search) => {
+  try {
+    const params = new URLSearchParams(search);
+    const encodedData = params.get('data');
+    if (encodedData) {
+      const jsonString = atob(decodeURIComponent(encodedData));
+      return JSON.parse(jsonString);
+    }
+  } catch (e) {
+    console.error("Failed to extract data from URL:", e);
+  }
+  return null;
+};
+
+// Function to retrieve window-passed data if available
+const getWindowData = () => {
+  try {
+    if (window._checkoutData) {
+      return window._checkoutData;
+    }
+  } catch (e) {
+    console.error("Failed to get window data:", e);
+  }
+  return null;
+};
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,27 +55,60 @@ const CheckoutPage = () => {
   const [error, setError] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('online');
   const [paymentInitiated, setPaymentInitiated] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   
   useEffect(() => {
     const fetchCheckoutData = () => {
-      const urlParams = new URLSearchParams(location.search);
-      const orderId = urlParams.get('orderId');
+      console.log("Attempting to fetch checkout data (attempt", retryCount + 1, ")");
       
-      // Get checkout data from localStorage (shared with the main app)
-      const data = getPendingCheckout();
+      // Try all available methods to get the checkout data
       
-      if (!data || data.platform !== 'blinkit') {
-        setError("No valid checkout data found. Please return to the main app and try again.");
+      // 1. Try to get it from URL parameters (most reliable)
+      const urlData = extractDataFromUrl(location.search);
+      if (urlData && urlData.platform === 'blinkit') {
+        console.log("Found checkout data in URL:", urlData);
+        setCheckoutData(urlData);
         setLoading(false);
         return;
       }
       
-      setCheckoutData(data);
+      // 2. Try to get it from the window object (direct pass)
+      const windowData = getWindowData();
+      if (windowData && windowData.platform === 'blinkit') {
+        console.log("Found checkout data in window object:", windowData);
+        setCheckoutData(windowData);
+        setLoading(false);
+        return;
+      }
+      
+      // 3. Try to get it from localStorage/sessionStorage
+      const storageData = getPendingCheckout();
+      if (storageData && storageData.platform === 'blinkit') {
+        console.log("Found checkout data in storage:", storageData);
+        setCheckoutData(storageData);
+        setLoading(false);
+        return;
+      }
+      
+      // If we got here, we couldn't find the data
+      console.log("No checkout data found in any source");
+      
+      // If we've tried less than 5 times, retry after a delay
+      if (retryCount < 5) {
+        console.log(`Retrying in ${(retryCount + 1) * 500}ms...`);
+        setTimeout(() => {
+          setRetryCount(prevCount => prevCount + 1);
+        }, (retryCount + 1) * 500);
+        return;
+      }
+      
+      // After 5 retries, show an error
+      setError("Could not retrieve checkout data. Please return to the main app and try again.");
       setLoading(false);
     };
     
     fetchCheckoutData();
-  }, [location]);
+  }, [location, retryCount]);
   
   const handlePayment = () => {
     if (!checkoutData) return;
@@ -72,8 +133,7 @@ const CheckoutPage = () => {
     } else {
       // Handle online payment with Razorpay
       const options = {
-        key_id: 'rzp_test_Jt8mnJR1XSuoZB', 
-        key_secret: 'dRJ1FSaqyiVVeQ1Vn9RtcGcm',
+        key: 'rzp_test_YourTestKey', // This would be your actual Razorpay key in production
         amount: checkoutData.totalAmount * 100, // Amount in paise
         currency: 'INR',
         name: 'Blinkit',
@@ -149,7 +209,12 @@ const CheckoutPage = () => {
     return (
       <div className="container mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[60vh]">
         <div className="animate-spin w-8 h-8 border-4 border-[#0C831F] border-t-transparent rounded-full mb-4"></div>
-        <p>Loading checkout information...</p>
+        <p>Loading checkout information... {retryCount > 0 ? `(Attempt ${retryCount})` : ''}</p>
+        {retryCount >= 3 && (
+          <p className="text-sm text-gray-600 mt-2">
+            This is taking longer than expected. Please try returning to the main app and starting again.
+          </p>
+        )}
       </div>
     );
   }
