@@ -1,9 +1,9 @@
-// zepto-clone/src/pages/CheckoutPage.jsx
+// zepto-clone/src/pages/CheckoutPage.jsx - Fixed version
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, MapPin, Home, CreditCard, Truck, ArrowRight, Check, AlertTriangle } from 'lucide-react';
-import { getPendingCheckout, updateOrderStatus } from '../utils/checkout-bridge';
+import { getPendingCheckout, updateOrderStatus, getOrderById } from '../utils/checkout-bridge';
 import { createRazorpayOrder, loadRazorpay } from '../utils/payment-utils';
 
 // Function to extract data from URL if present
@@ -47,6 +47,21 @@ const CheckoutPage = () => {
   const [retryCount, setRetryCount] = useState(0);
   
   useEffect(() => {
+    // Check if we're already supposed to be on the confirmation page
+    // This can happen if the payment was successful but the navigation failed
+    const urlParams = new URLSearchParams(location.search);
+    const orderId = urlParams.get('orderId');
+    
+    if (location.pathname === '/checkout' && orderId) {
+      // Check if we have an order with this ID
+      const orderData = getOrderById(orderId);
+      if (orderData && orderData.status === 'confirmed') {
+        // We should be on the confirmation page - redirect
+        navigate(`/order-confirmation?orderId=${orderId}`, { replace: true });
+        return;
+      }
+    }
+    
     const fetchCheckoutData = () => {
       console.log("Attempting to fetch checkout data (attempt", retryCount + 1, ")");
       
@@ -97,7 +112,7 @@ const CheckoutPage = () => {
     };
     
     fetchCheckoutData();
-  }, [location, retryCount]);
+  }, [location, retryCount, navigate]);
   
   const handlePayment = async () => {
     if (!checkoutData) return;
@@ -107,7 +122,7 @@ const CheckoutPage = () => {
     if (paymentMethod === 'cod') {
       try {
         // Handle cash on delivery
-        updateOrderStatus({
+        const orderStatusData = {
           orderId: checkoutData.orderId,
           status: 'confirmed',
           platform: 'zepto',
@@ -116,11 +131,17 @@ const CheckoutPage = () => {
           deliveryTime: '8 minutes',
           message: 'Your order is confirmed and will be delivered in 8 minutes',
           paymentMethod: 'cod',
-          address: address
-        });
+          address: address,
+          items: checkoutData.items
+        };
         
-        // Navigate to confirmation page
-        navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+        // Update order status
+        updateOrderStatus(orderStatusData);
+        
+        // Navigate to confirmation page with a small delay to ensure data is saved
+        setTimeout(() => {
+          navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+        }, 500);
       } catch (error) {
         console.error("Error handling COD payment:", error);
         setPaymentInitiated(false);
@@ -152,6 +173,7 @@ const CheckoutPage = () => {
           },
           modal: {
             ondismiss: () => {
+              console.log("Razorpay modal dismissed by user");
               setPaymentInitiated(false);
               
               // Update status as payment cancelled
@@ -166,68 +188,86 @@ const CheckoutPage = () => {
                 address: address
               });
             }
-          },
-          handler: function(response) {
-            console.log("Payment successful, direct handler called:", response);
-            
-            // This is a backup to ensure the success flow happens even if the event doesn't fire
-            setTimeout(() => {
-              // Double check if we're still in payment initiated state
-              if (paymentInitiated) {
-                try {
-                  // Call our success handler
-                  handlePaymentSuccess(response);
-                } catch (err) {
-                  console.error("Error in handler callback:", err);
-                }
-              }
-            }, 2000);
           }
         };
         
         const handlePaymentSuccess = (paymentResponse) => {
-          // Payment success - properly verified by our backend
-          updateOrderStatus({
-            orderId: checkoutData.orderId,
-            status: 'confirmed',
-            platform: 'zepto',
-            timestamp: new Date().toISOString(),
-            totalAmount: checkoutData.totalAmount,
-            deliveryTime: '8 minutes',
-            message: 'Your order is confirmed and will be delivered in 8 minutes',
-            paymentMethod: 'online',
-            paymentId: paymentResponse.razorpay_payment_id,
-            razorpayOrderId: paymentResponse.razorpay_order_id,
-            address: address
-          });
+          console.log("Payment success handler called with response:", paymentResponse);
           
-          // Navigate to confirmation page
-          console.log("Navigating to order confirmation page");
-          setPaymentInitiated(false);
-          navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
-        };
-        
-        loadRazorpay(
-          options,
-          handlePaymentSuccess,
-          (error) => {
-            // Payment failure
-            setPaymentInitiated(false);
-            
-            updateOrderStatus({
+          // Prevent duplicate processing
+          if (!paymentInitiated) {
+            console.log("Ignoring duplicate success callback");
+            return;
+          }
+          
+          try {
+            // Create order status record with all necessary information
+            const orderStatusData = {
               orderId: checkoutData.orderId,
-              status: 'failed',
+              status: 'confirmed',
               platform: 'zepto',
               timestamp: new Date().toISOString(),
               totalAmount: checkoutData.totalAmount,
-              message: 'Payment failed. Please try again.',
+              deliveryTime: '8 minutes',
+              message: 'Your order is confirmed and will be delivered in 8 minutes',
               paymentMethod: 'online',
-              error: error.description || 'Unknown error',
-              address: address
-            });
+              paymentId: paymentResponse.razorpay_payment_id,
+              razorpayOrderId: paymentResponse.razorpay_order_id,
+              address: address,
+              items: checkoutData.items
+            };
             
-            setError('Payment failed: ' + (error.description || 'Unknown error'));
+            // Save order data for the confirmation page to access
+            updateOrderStatus(orderStatusData);
+            
+            // Add a small delay to ensure data is saved before navigation
+            setTimeout(() => {
+              // Set payment initiated to false to prevent duplicate processing
+              setPaymentInitiated(false);
+              
+              // Navigate to confirmation page
+              console.log("Navigating to order confirmation page");
+              navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+            }, 500);
+          } catch (err) {
+            console.error("Error in payment success handler:", err);
+            setPaymentInitiated(false);
+            setError("Error processing successful payment. Please contact support.");
           }
+        };
+        
+        const handlePaymentError = (error) => {
+          console.error("Payment error:", error);
+          
+          // Payment failure
+          setPaymentInitiated(false);
+          
+          updateOrderStatus({
+            orderId: checkoutData.orderId,
+            status: 'failed',
+            platform: 'zepto',
+            timestamp: new Date().toISOString(),
+            totalAmount: checkoutData.totalAmount,
+            message: 'Payment failed. Please try again.',
+            paymentMethod: 'online',
+            error: error.description || 'Unknown error',
+            address: address
+          });
+          
+          setError('Payment failed: ' + (error.description || 'Unknown error'));
+        };
+        
+        // Set up global handler as a backup
+        window.onRazorpayPaymentSuccess = (response) => {
+          console.log("Global payment success handler called:", response);
+          handlePaymentSuccess(response);
+        };
+        
+        // Initialize Razorpay
+        loadRazorpay(
+          options,
+          handlePaymentSuccess,
+          handlePaymentError
         );
       } catch (error) {
         console.error('Payment initialization error:', error);
@@ -262,10 +302,17 @@ const CheckoutPage = () => {
           </div>
         </div>
         <button 
-          onClick={() => window.close()} 
+          onClick={() => {
+            if (window.opener) {
+              window.opener.focus();
+              window.close();
+            } else {
+              window.location.href = "/";
+            }
+          }} 
           className="px-4 py-2 bg-[#8025fb] text-white rounded-lg"
         >
-          Close Window
+          Return to Main App
         </button>
       </div>
     );
@@ -282,10 +329,17 @@ const CheckoutPage = () => {
           </div>
         </div>
         <button 
-          onClick={() => window.close()} 
+          onClick={() => {
+            if (window.opener) {
+              window.opener.focus();
+              window.close();
+            } else {
+              window.location.href = "/";
+            }
+          }} 
           className="px-4 py-2 bg-[#8025fb] text-white rounded-lg"
         >
-          Close Window
+          Return to Main App
         </button>
       </div>
     );

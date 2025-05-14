@@ -1,4 +1,4 @@
-// src/lib/checkout-bridge.js
+// Enhanced checkout-bridge.js with improved window communication and data persistence
 
 /**
  * Formats cart data to be shared between applications
@@ -60,43 +60,183 @@ export const generateOrderId = (platform) => {
 
 /**
  * Stores checkout data in localStorage for retrieval by clone apps
- * Also uses sessionStorage for more reliable cross-tab communication
+ * Also uses sessionStorage and other methods for more reliable cross-tab communication
  * @param {Object} checkoutData - The formatted checkout data
  */
 export const storeCheckoutData = (checkoutData) => {
-  // Store in both localStorage and sessionStorage for redundancy
+  // Store in localStorage and sessionStorage for redundancy
   const dataString = JSON.stringify(checkoutData);
-  localStorage.setItem('pending_checkout', dataString);
-  sessionStorage.setItem('pending_checkout', dataString);
-  localStorage.setItem('checkout_timestamp', Date.now().toString());
   
-  // Broadcast the data to other tabs/windows via storage event
   try {
-    // Create a shared key with timestamp to ensure uniqueness
+    // Primary storage methods
+    localStorage.setItem('pending_checkout', dataString);
+    sessionStorage.setItem('pending_checkout', dataString);
+    localStorage.setItem('checkout_timestamp', Date.now().toString());
+    
+    // Store with the order ID for direct lookup
+    localStorage.setItem(`checkout_${checkoutData.orderId}`, dataString);
+    
+    // Broadcast the data via a unique key (for detection by other tabs)
     const broadcastKey = `checkout_broadcast_${Date.now()}`;
     localStorage.setItem(broadcastKey, dataString);
     
     // Clean up after a delay to prevent localStorage from getting cluttered
     setTimeout(() => {
-      localStorage.removeItem(broadcastKey);
+      try {
+        localStorage.removeItem(broadcastKey);
+      } catch (e) {
+        console.error("Error cleaning up broadcast key:", e);
+      }
     }, 10000); // 10 seconds
     
     console.log("Checkout data stored and broadcast:", checkoutData);
   } catch (e) {
-    console.error("Error broadcasting checkout data:", e);
+    console.error("Error storing checkout data:", e);
   }
   
   // Create a global variable as a fallback method
   try {
+    window._checkoutData = checkoutData;
     window._pendingCheckoutData = checkoutData;
-    console.log("Set global checkout data variable");
+    console.log("Set global checkout data variables");
   } catch (e) {
     console.error("Failed to set global checkout data variable:", e);
   }
 };
 
 /**
- * Stores order status updates with enhanced persistence
+ * Retrieves pending checkout data from multiple sources with improved robustness
+ * @return {Object|null} The checkout data or null if none exists
+ */
+export const getPendingCheckout = () => {
+  console.log("Trying to retrieve checkout data");
+  
+  // Try multiple storage methods
+  const storageOptions = [
+    { type: 'orderParameter', key: 'orderId' },
+    { type: 'sessionStorage', key: 'pending_checkout' },
+    { type: 'localStorage', key: 'pending_checkout' },
+    { type: 'broadcastKeys', pattern: 'checkout_broadcast_' },
+    { type: 'windowVariable', name: '_checkoutData' },
+    { type: 'windowVariable', name: '_pendingCheckoutData' }
+  ];
+  
+  for (const option of storageOptions) {
+    try {
+      if (option.type === 'orderParameter') {
+        // Check if we have an order ID in the URL and try to get the associated checkout data
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get(option.key);
+        
+        if (orderId) {
+          const data = localStorage.getItem(`checkout_${orderId}`);
+          if (data) {
+            try {
+              const parsedData = JSON.parse(data);
+              console.log(`Found checkout data for order ${orderId}:`, parsedData);
+              return parsedData;
+            } catch (e) {
+              console.error(`Error parsing checkout data for order ${orderId}:`, e);
+            }
+          }
+        }
+      }
+      else if (option.type === 'sessionStorage') {
+        const data = sessionStorage.getItem(option.key);
+        if (data) {
+          const parsedData = JSON.parse(data);
+          console.log("Found checkout data in sessionStorage:", parsedData);
+          return parsedData;
+        }
+      } 
+      else if (option.type === 'localStorage') {
+        const data = localStorage.getItem(option.key);
+        if (data) {
+          const parsedData = JSON.parse(data);
+          console.log("Found checkout data in localStorage:", parsedData);
+          return parsedData;
+        }
+      }
+      else if (option.type === 'broadcastKeys') {
+        const keys = Object.keys(localStorage).filter(key => 
+          key.startsWith(option.pattern)
+        );
+        
+        if (keys.length > 0) {
+          // Sort by timestamp to get the most recent
+          keys.sort().reverse();
+          const latestKey = keys[0];
+          const data = localStorage.getItem(latestKey);
+          
+          if (data) {
+            const parsedData = JSON.parse(data);
+            console.log("Found checkout data in broadcast key:", parsedData);
+            return parsedData;
+          }
+        }
+      }
+      else if (option.type === 'windowVariable') {
+        if (window[option.name]) {
+          console.log(`Found checkout data in window.${option.name}:`, window[option.name]);
+          return window[option.name];
+        }
+      }
+    } catch (e) {
+      console.error(`Error retrieving from ${option.type}:`, e);
+    }
+  }
+  
+  // Try to extract data from URL (base64 encoded)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedData = urlParams.get('data');
+    if (encodedData) {
+      const jsonString = atob(decodeURIComponent(encodedData));
+      const data = JSON.parse(jsonString);
+      console.log("Found checkout data in URL parameter:", data);
+      return data;
+    }
+  } catch (e) {
+    console.error("Error extracting data from URL:", e);
+  }
+  
+  console.warn("No checkout data found in any storage mechanism");
+  return null;
+};
+
+/**
+ * Clears pending checkout data from all storage mechanisms
+ */
+export const clearPendingCheckout = () => {
+  try {
+    localStorage.removeItem('pending_checkout');
+    sessionStorage.removeItem('pending_checkout');
+    localStorage.removeItem('checkout_timestamp');
+    
+    // Clean up any window variables
+    if (window._checkoutData) {
+      delete window._checkoutData;
+    }
+    
+    if (window._pendingCheckoutData) {
+      delete window._pendingCheckoutData;
+    }
+    
+    // Also clear any broadcast keys
+    try {
+      const keys = Object.keys(localStorage);
+      const broadcastKeys = keys.filter(key => key.startsWith('checkout_broadcast_'));
+      broadcastKeys.forEach(key => localStorage.removeItem(key));
+    } catch (e) {
+      console.error("Error clearing broadcast keys:", e);
+    }
+  } catch (e) {
+    console.error("Error in clearPendingCheckout:", e);
+  }
+};
+
+/**
+ * Stores order status updates with enhanced persistence and cross-window communication
  * @param {Object} orderStatus - The order status data
  */
 export const updateOrderStatus = (orderStatus) => {
@@ -171,21 +311,35 @@ export const updateOrderStatus = (orderStatus) => {
 };
 
 /**
- * Gets a specific order by ID
+ * Gets a specific order by ID with improved reliability
  * @param {string} orderId - The order ID to retrieve
  * @return {Object|null} The order data or null if not found
  */
 export const getOrderById = (orderId) => {
   if (!orderId) return null;
   
+  console.log("Looking for order with ID:", orderId);
+  
   // Try direct lookup first
   try {
     const orderData = localStorage.getItem(`order_${orderId}`);
     if (orderData) {
+      console.log("Found order data in localStorage by direct lookup");
       return JSON.parse(orderData);
     }
   } catch (e) {
     console.error("Error retrieving order by direct lookup:", e);
+  }
+  
+  // Check if this might be a pending checkout that hasn't been turned into an order yet
+  try {
+    const checkoutData = localStorage.getItem(`checkout_${orderId}`);
+    if (checkoutData) {
+      console.log("Found pending checkout data for this order ID");
+      return JSON.parse(checkoutData);
+    }
+  } catch (e) {
+    console.error("Error retrieving checkout by order ID:", e);
   }
   
   // Then check in the orders list
@@ -195,7 +349,10 @@ export const getOrderById = (orderId) => {
       const orders = JSON.parse(ordersStr);
       if (Array.isArray(orders)) {
         const order = orders.find(o => o.orderId === orderId);
-        if (order) return order;
+        if (order) {
+          console.log("Found order in order_statuses list");
+          return order;
+        }
       }
     }
   } catch (e) {
@@ -206,6 +363,7 @@ export const getOrderById = (orderId) => {
   try {
     const sessionOrderData = sessionStorage.getItem(`order_${orderId}`);
     if (sessionOrderData) {
+      console.log("Found order in sessionStorage by direct lookup");
       return JSON.parse(sessionOrderData);
     }
     
@@ -214,13 +372,17 @@ export const getOrderById = (orderId) => {
       const sessionOrders = JSON.parse(sessionOrdersStr);
       if (Array.isArray(sessionOrders)) {
         const sessionOrder = sessionOrders.find(o => o.orderId === orderId);
-        if (sessionOrder) return sessionOrder;
+        if (sessionOrder) {
+          console.log("Found order in sessionStorage order_statuses list");
+          return sessionOrder;
+        }
       }
     }
   } catch (e) {
     console.error("Error retrieving order from session storage:", e);
   }
   
+  console.log("No order found with ID:", orderId);
   return null;
 };
 
@@ -259,97 +421,12 @@ export const getOrderStatuses = () => {
 };
 
 /**
- * Retrieves pending checkout data from multiple sources with improved robustness
- * @return {Object|null} The checkout data or null if none exists
- */
-export const getPendingCheckout = () => {
-  console.log("Trying to retrieve checkout data");
-  
-  // Try multiple storage methods
-  const storageOptions = [
-    { type: 'sessionStorage', key: 'pending_checkout' },
-    { type: 'localStorage', key: 'pending_checkout' },
-    { type: 'broadcastKeys', pattern: 'checkout_broadcast_' },
-    { type: 'windowVariable', name: '_checkoutData' }
-  ];
-  
-  for (const option of storageOptions) {
-    try {
-      if (option.type === 'sessionStorage') {
-        const data = sessionStorage.getItem(option.key);
-        if (data) {
-          const parsedData = JSON.parse(data);
-          console.log("Found checkout data in sessionStorage:", parsedData);
-          return parsedData;
-        }
-      } 
-      else if (option.type === 'localStorage') {
-        const data = localStorage.getItem(option.key);
-        if (data) {
-          const parsedData = JSON.parse(data);
-          console.log("Found checkout data in localStorage:", parsedData);
-          return parsedData;
-        }
-      }
-      else if (option.type === 'broadcastKeys') {
-        const keys = Object.keys(localStorage).filter(key => 
-          key.startsWith(option.pattern)
-        );
-        
-        if (keys.length > 0) {
-          // Sort by timestamp to get the most recent
-          keys.sort().reverse();
-          const latestKey = keys[0];
-          const data = localStorage.getItem(latestKey);
-          
-          if (data) {
-            const parsedData = JSON.parse(data);
-            console.log("Found checkout data in broadcast key:", parsedData);
-            return parsedData;
-          }
-        }
-      }
-      else if (option.type === 'windowVariable') {
-        if (window[option.name]) {
-          console.log(`Found checkout data in window.${option.name}:`, window[option.name]);
-          return window[option.name];
-        }
-      }
-    } catch (e) {
-      console.error(`Error retrieving from ${option.type}:`, e);
-    }
-  }
-  
-  console.warn("No checkout data found in any storage mechanism");
-  return null;
-};
-
-/**
- * Clears pending checkout data from all storage mechanisms
- */
-export const clearPendingCheckout = () => {
-  localStorage.removeItem('pending_checkout');
-  sessionStorage.removeItem('pending_checkout');
-  localStorage.removeItem('checkout_timestamp');
-  try {
-    delete window._pendingCheckoutData;
-  } catch (e) {}
-  
-  // Also clear any broadcast keys
-  try {
-    const keys = Object.keys(localStorage);
-    const broadcastKeys = keys.filter(key => key.startsWith('checkout_broadcast_'));
-    broadcastKeys.forEach(key => localStorage.removeItem(key));
-  } catch (e) {}
-};
-
-/**
- * Opens a clone app for checkout in a new tab with data sharing
+ * Opens a clone app for checkout in a new tab with enhanced data sharing
  * @param {Object} checkoutData - The checkout data
  * @param {Object} config - Configuration including URLs
  */
 export const openCheckoutTab = (checkoutData, config) => {
-  // Store the checkout data first using multiple mechanisms
+  // Store the checkout data using multiple mechanisms for redundancy
   storeCheckoutData(checkoutData);
   
   // Determine which URL to open based on the platform
@@ -402,7 +479,22 @@ export const openCheckoutTab = (checkoutData, config) => {
  * @return {Function} Function to remove event listener
  */
 export const listenForOrderUpdates = (callback) => {
-  const handleEvent = (event) => callback(event.detail);
-  window.addEventListener('order_status_update', handleEvent);
-  return () => window.removeEventListener('order_status_update', handleEvent);
+  // Custom event listener
+  const handleLocalEvent = (event) => callback(event.detail);
+  window.addEventListener('order_status_update', handleLocalEvent);
+  
+  // PostMessage handler for cross-window communication
+  const handleWindowMessage = (event) => {
+    // Verify this is our message type
+    if (event.data && typeof event.data === 'object' && event.data.type === 'ORDER_STATUS_UPDATE') {
+      callback(event.data.data);
+    }
+  };
+  window.addEventListener('message', handleWindowMessage);
+  
+  // Return a cleanup function
+  return () => {
+    window.removeEventListener('order_status_update', handleLocalEvent);
+    window.removeEventListener('message', handleWindowMessage);
+  };
 };

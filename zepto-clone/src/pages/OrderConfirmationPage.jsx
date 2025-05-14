@@ -1,8 +1,8 @@
-// zepto-clone/src/pages/OrderConfirmationPage.jsx
+// zepto-clone/src/pages/OrderConfirmationPage.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CheckCircle, Truck, Clock, MapPin, Copy, ArrowLeft, ExternalLink } from 'lucide-react';
-import { getPendingCheckout, updateOrderStatus, clearPendingCheckout } from '../utils/checkout-bridge';
+import { getOrderById, updateOrderStatus, clearPendingCheckout } from '../utils/checkout-bridge';
 
 const OrderConfirmationPage = () => {
   const navigate = useNavigate();
@@ -18,20 +18,25 @@ const OrderConfirmationPage = () => {
       const urlParams = new URLSearchParams(location.search);
       const orderId = urlParams.get('orderId');
       
-      // Get checkout data from localStorage (shared with the main app)
-      const data = getPendingCheckout();
-      
-      if (!data || data.platform !== 'Blinkit' || !orderId) {
+      if (!orderId) {
+        console.error("No order ID found in URL");
         setLoading(false);
         return;
       }
       
-      setOrderData({
-        ...data,
-        orderId: orderId,
-        status: 'confirmed',
-        deliveryTime: '8 minutes'
-      });
+      console.log("Looking for order with ID:", orderId);
+      
+      // Get order data directly using the order ID
+      const data = getOrderById(orderId);
+      
+      if (!data) {
+        console.error("No order data found for ID:", orderId);
+        setLoading(false);
+        return;
+      }
+      
+      console.log("Found order data:", data);
+      setOrderData(data);
       
       // Clear the pending checkout data as the order is now confirmed
       clearPendingCheckout();
@@ -54,7 +59,7 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'preparing',
-        platform: 'Blinkit',
+        platform: 'zepto',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: '5 minutes',
@@ -71,7 +76,7 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'on_the_way',
-        platform: 'Blinkit',
+        platform: 'zepto',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: '2 minutes',
@@ -88,11 +93,11 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'delivered',
-        platform: 'blinkit',
+        platform: 'zepto',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: 'Delivered',
-        message: 'Your order has been delivered. Thank you for shopping with blinkit!'
+        message: 'Your order has been delivered. Thank you for shopping with Zepto!'
       });
       
     }, 45000);
@@ -139,9 +144,20 @@ const OrderConfirmationPage = () => {
   };
   
   const handleReturnToApp = () => {
-    // Open the main app window and close this one
-    window.opener?.focus();
-    window.close();
+    // Try to focus the opener window and close this one
+    if (window.opener) {
+      try {
+        window.opener.focus();
+        window.close();
+      } catch (e) {
+        console.error("Error returning to main app:", e);
+        // Fallback to navigate to home
+        window.location.href = "/";
+      }
+    } else {
+      // If no opener, just navigate home
+      window.location.href = "/";
+    }
   };
   
   if (loading) {
@@ -311,14 +327,14 @@ const OrderConfirmationPage = () => {
             <h2 className="font-semibold mb-3">Delivery Address</h2>
             <div className="flex items-start p-3 border rounded-lg bg-gray-50">
               <MapPin className="text-[#8025fb] mr-2" size={18} />
-              <div className="text-sm">123 Main Street, Bengaluru, 560001</div>
+              <div className="text-sm">{orderData.address || "123 Main Street, Bengaluru, 560001"}</div>
             </div>
           </div>
           
           <div className="mb-6">
             <h2 className="font-semibold mb-4">Order Summary</h2>
             <div className="divide-y border rounded-lg overflow-hidden">
-              {orderData.items.map((item) => (
+              {orderData.items && orderData.items.map((item) => (
                 <div key={item.id} className="p-3 flex items-center bg-white">
                   <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-100">
                     <img 

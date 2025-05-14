@@ -1,4 +1,4 @@
-// zepto-clone/src/utils/payment-utils.js
+// zepto-clone/src/utils/payment-utils.js - Enhanced version
 
 import axios from 'axios';
 
@@ -48,7 +48,7 @@ export const verifyPayment = async (paymentData) => {
   }
 };
 
-// Initialize Razorpay and handle payments
+// Enhanced function to initialize Razorpay and handle payments
 export const loadRazorpay = (options, onSuccess, onError) => {
   console.log('Initializing Razorpay with options:', options);
   
@@ -59,8 +59,9 @@ export const loadRazorpay = (options, onSuccess, onError) => {
     
     const rzp = new window.Razorpay(options);
     
+    // Set up event handlers for payment confirmation
     rzp.on('payment.success', async (response) => {
-      console.log('Razorpay payment success:', response);
+      console.log('Razorpay payment success event triggered:', response);
       
       try {
         // Verify payment with backend
@@ -71,24 +72,49 @@ export const loadRazorpay = (options, onSuccess, onError) => {
         });
         
         if (verification.success) {
-          console.log('Payment verified successfully');
+          console.log('Payment verified successfully on server');
           // Ensure we call onSuccess with the response
           onSuccess(response);
         } else {
-          console.error('Payment verification failed');
-          onError({ description: 'Payment verification failed' });
+          console.error('Payment verification failed on server');
+          onError({ description: 'Payment verification failed on server' });
         }
       } catch (error) {
         console.error('Error during payment verification:', error);
-        onError({ description: error.message });
+        onError({ description: error.message || 'Payment verification error' });
       }
     });
     
+    // Set up error handler
     rzp.on('payment.error', (response) => {
-      console.error('Razorpay payment error:', response);
+      console.error('Razorpay payment error event triggered:', response);
       onError(response);
     });
     
+    // Track modal dismiss event
+    rzp.on('modal.closed', () => {
+      console.log('Razorpay modal closed');
+    });
+    
+    // Register a global handler as a backup
+    window.onRazorpayPaymentSuccess = async (response) => {
+      console.log('Global payment success handler called:', response);
+      try {
+        const verification = await verifyPayment({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature
+        });
+        
+        if (verification.success) {
+          onSuccess(response);
+        }
+      } catch (error) {
+        console.error('Error in global success handler:', error);
+      }
+    };
+    
+    // Open the Razorpay modal
     console.log('Opening Razorpay payment dialog');
     rzp.open();
     
