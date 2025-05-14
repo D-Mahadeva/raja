@@ -1,4 +1,4 @@
-// blinkit-clone/src/utils/payment-utils.js (and zepto-clone/src/utils/payment-utils.js)
+// zepto-clone/src/utils/payment-utils.js
 
 import axios from 'axios';
 
@@ -72,6 +72,7 @@ export const loadRazorpay = (options, onSuccess, onError) => {
         
         if (verification.success) {
           console.log('Payment verified successfully');
+          // Ensure we call onSuccess with the response
           onSuccess(response);
         } else {
           console.error('Payment verification failed');

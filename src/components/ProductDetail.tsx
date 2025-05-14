@@ -1,3 +1,5 @@
+// src/components/ProductDetail.tsx
+
 import React from 'react';
 import { useShop, Product, Platform } from '@/context/ShopContext';
 import { Clock, ShoppingBag, Truck, Check, Share2, Heart } from 'lucide-react';
@@ -11,7 +13,7 @@ interface ProductDetailProps {
 }
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
-  const { addToCart, cart, updateCartItemQuantity } = useShop();
+  const { addToCart, cart, updateCartItemQuantity, platforms } = useShop();
   const { toast } = useToast();
   
   // Sort prices from lowest to highest
@@ -40,6 +42,65 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
         description: `${product.name} has been added to your cart`,
       });
     }
+  };
+
+  // Share functionality
+  const handleShare = () => {
+    // Get product and platform info
+    const productName = product.name;
+    const bestPlatform = product.prices
+      .filter(p => p.available)
+      .sort((a, b) => a.price - b.price)[0]?.platform || '';
+    
+    const platformName = platforms.find(p => p.id === bestPlatform)?.name || '';
+    
+    // Create share text
+    const shareText = `Check out ${productName} on ${platformName}!`;
+    const shareUrl = window.location.href;
+    
+    // Use Web Share API if available
+    if (navigator.share) {
+      navigator.share({
+        title: `${productName} | PriceWise`,
+        text: shareText,
+        url: shareUrl,
+      })
+      .then(() => {
+        console.log('Shared successfully');
+        toast({
+          title: "Shared successfully",
+          description: "Product information has been shared",
+        });
+      })
+      .catch((error) => {
+        console.error('Error sharing:', error);
+        // Fallback for when sharing fails
+        fallbackShare();
+      });
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      fallbackShare();
+    }
+  };
+
+  // Fallback share function
+  const fallbackShare = () => {
+    // Copy the URL to clipboard
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        toast({
+          title: "Link copied to clipboard",
+          description: "Share this link with others",
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to copy:', err);
+        toast({
+          title: "Couldn't copy link",
+          description: "Please try again or copy manually",
+          variant: "destructive",
+        });
+      });
   };
 
   // Animation variants
@@ -95,6 +156,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               whileTap={{ scale: 0.95 }}
               className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
               aria-label="Share product"
+              onClick={handleShare}
             >
               <Share2 size={18} />
             </motion.button>

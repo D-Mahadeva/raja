@@ -38,6 +38,8 @@ const CheckoutPage = () => {
   const location = useLocation();
   const [checkoutData, setCheckoutData] = useState(null);
   const [address, setAddress] = useState("123 Main Street, Bengaluru, 560001");
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('online');
@@ -103,20 +105,27 @@ const CheckoutPage = () => {
     setPaymentInitiated(true);
     
     if (paymentMethod === 'cod') {
-      // Handle cash on delivery
-      updateOrderStatus({
-        orderId: checkoutData.orderId,
-        status: 'confirmed',
-        platform: 'blinkit',
-        timestamp: new Date().toISOString(),
-        totalAmount: checkoutData.totalAmount,
-        deliveryTime: '10 minutes',
-        message: 'Your order is confirmed and will be delivered in 10 minutes',
-        paymentMethod: 'cod'
-      });
-      
-      // Navigate to confirmation page
-      navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+      try {
+        // Handle cash on delivery
+        updateOrderStatus({
+          orderId: checkoutData.orderId,
+          status: 'confirmed',
+          platform: 'blinkit',
+          timestamp: new Date().toISOString(),
+          totalAmount: checkoutData.totalAmount,
+          deliveryTime: '10 minutes',
+          message: 'Your order is confirmed and will be delivered in 10 minutes',
+          paymentMethod: 'cod',
+          address: address
+        });
+        
+        // Navigate to confirmation page
+        navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+      } catch (error) {
+        console.error("Error handling COD payment:", error);
+        setPaymentInitiated(false);
+        setError("Failed to place order. Please try again.");
+      }
     } else {
       try {
         // Create Razorpay order first
@@ -153,32 +162,54 @@ const CheckoutPage = () => {
                 timestamp: new Date().toISOString(),
                 totalAmount: checkoutData.totalAmount,
                 message: 'Payment was cancelled. Please try again.',
-                paymentMethod: 'online'
+                paymentMethod: 'online',
+                address: address
               });
             }
+          },
+          handler: function(response) {
+            console.log("Payment successful, direct handler called:", response);
+            
+            // This is a backup to ensure the success flow happens even if the event doesn't fire
+            setTimeout(() => {
+              // Double check if we're still in payment initiated state
+              if (paymentInitiated) {
+                try {
+                  // Call our success handler
+                  handlePaymentSuccess(response);
+                } catch (err) {
+                  console.error("Error in handler callback:", err);
+                }
+              }
+            }, 2000);
           }
+        };
+        
+        const handlePaymentSuccess = (paymentResponse) => {
+          // Payment success - properly verified by our backend
+          updateOrderStatus({
+            orderId: checkoutData.orderId,
+            status: 'confirmed',
+            platform: 'blinkit',
+            timestamp: new Date().toISOString(),
+            totalAmount: checkoutData.totalAmount,
+            deliveryTime: '10 minutes',
+            message: 'Your order is confirmed and will be delivered in 10 minutes',
+            paymentMethod: 'online',
+            paymentId: paymentResponse.razorpay_payment_id,
+            razorpayOrderId: paymentResponse.razorpay_order_id,
+            address: address
+          });
+          
+          // Navigate to confirmation page
+          console.log("Navigating to order confirmation page");
+          setPaymentInitiated(false);
+          navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
         };
         
         loadRazorpay(
           options,
-          (paymentResponse) => {
-            // Payment success - properly verified by our backend
-            updateOrderStatus({
-              orderId: checkoutData.orderId,
-              status: 'confirmed',
-              platform: 'blinkit',
-              timestamp: new Date().toISOString(),
-              totalAmount: checkoutData.totalAmount,
-              deliveryTime: '10 minutes',
-              message: 'Your order is confirmed and will be delivered in 10 minutes',
-              paymentMethod: 'online',
-              paymentId: paymentResponse.razorpay_payment_id,
-              razorpayOrderId: paymentResponse.razorpay_order_id
-            });
-            
-            // Navigate to confirmation page
-            navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
-          },
+          handlePaymentSuccess,
           (error) => {
             // Payment failure
             setPaymentInitiated(false);
@@ -191,7 +222,8 @@ const CheckoutPage = () => {
               totalAmount: checkoutData.totalAmount,
               message: 'Payment failed. Please try again.',
               paymentMethod: 'online',
-              error: error.description || 'Unknown error'
+              error: error.description || 'Unknown error',
+              address: address
             });
             
             setError('Payment failed: ' + (error.description || 'Unknown error'));
@@ -276,18 +308,55 @@ const CheckoutPage = () => {
                 Delivery Address
               </h2>
               
-              <div className="flex items-start p-3 border rounded-lg bg-gray-50">
-                <Home className="mr-3 text-gray-500" size={18} />
-                <div>
-                  <div className="font-medium">Home</div>
-                  <div className="text-sm text-gray-600">{address}</div>
-                </div>
-                <div className="ml-auto">
-                  <div className="text-xs px-2 py-1 bg-[#0C831F] text-white rounded">
-                    Default
+              {editingAddress ? (
+                <div className="space-y-3">
+                  <textarea
+                    className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0C831F] min-h-[100px]"
+                    value={newAddress}
+                    onChange={(e) => setNewAddress(e.target.value)}
+                    placeholder="Enter your full delivery address"
+                  />
+                  <div className="flex gap-2">
+                    <button 
+                      className="px-4 py-2 bg-[#0C831F] text-white rounded-lg hover:bg-[#0A7319] transition-colors"
+                      onClick={() => {
+                        if (newAddress.trim()) {
+                          setAddress(newAddress.trim());
+                        }
+                        setEditingAddress(false);
+                      }}
+                    >
+                      Save Address
+                    </button>
+                    <button 
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        setNewAddress("");
+                        setEditingAddress(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start p-3 border rounded-lg bg-gray-50">
+                  <Home className="mr-3 text-gray-500" size={18} />
+                  <div className="flex-1">
+                    <div className="font-medium">Home</div>
+                    <div className="text-sm text-gray-600">{address}</div>
+                  </div>
+                  <button 
+                    className="text-[#0C831F] hover:underline text-sm"
+                    onClick={() => {
+                      setNewAddress(address);
+                      setEditingAddress(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
             
             {/* Order Items */}

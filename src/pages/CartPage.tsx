@@ -1,3 +1,5 @@
+// src/pages/CartPage.tsx
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useShop, Platform, CartItem as CartItemType } from '@/context/ShopContext';
@@ -13,7 +15,8 @@ import {
   formatCheckoutData, 
   openCheckoutTab, 
   listenForOrderUpdates, 
-  getOrderStatuses 
+  getOrderStatuses,
+  getOrderById
 } from '@/lib/checkout-bridge';
 
 // Configuration for clone apps
@@ -80,32 +83,107 @@ const CartPage = () => {
   
   // Listen for order status updates
   useEffect(() => {
-    // Load initial order statuses
-    const initialOrders = getOrderStatuses();
-    setRecentOrders(initialOrders);
-    
-    // Set up listener for future updates
-    const removeListener = listenForOrderUpdates((orderStatus) => {
-      setRecentOrders(prev => [orderStatus, ...prev].slice(0, 10));
-      
-      // Show a toast notification for the update
-      toast({
-        title: `Order Update: ${orderStatus.orderId}`,
-        description: orderStatus.status === 'delivered' 
-          ? `Your order has been delivered!` 
-          : `Status: ${orderStatus.status} - ${orderStatus.message}`,
-        variant: orderStatus.status === 'failed' ? 'destructive' : 'default',
-      });
-      
-      // If the order was successfully placed, reset checkout progress
-      if (orderStatus.status === 'confirmed' || orderStatus.status === 'delivered') {
-        setCheckoutInProgress(false);
+    // Load initial order statuses with improved handling
+    const initialOrders = getOrderStatuses().map(order => {
+      // If the order doesn't have a formatted timestamp, add one
+      if (!order.formattedTime) {
+        try {
+          const timestamp = new Date(order.timestamp);
+          order.formattedTime = timestamp.toLocaleString();
+        } catch (e) {
+          order.formattedTime = "Unknown time";
+        }
       }
+      return order;
     });
     
-    return () => removeListener();
+    console.log("Initial orders:", initialOrders);
+    setRecentOrders(initialOrders);
+    
+    // Set up listener for future updates with better error handling
+    const handleOrderUpdate = (orderStatus) => {
+      console.log("Received order update:", orderStatus);
+      
+      try {
+        // Format timestamp for display
+        let formattedTime = "Unknown time";
+        try {
+          const timestamp = new Date(orderStatus.timestamp);
+          formattedTime = timestamp.toLocaleString();
+        } catch (e) {}
+        
+        // Create enhanced status record
+        const enhancedStatus = {
+          ...orderStatus,
+          formattedTime
+        };
+        
+        // Update the orders list, handling duplicates
+        setRecentOrders(prev => {
+          // Check if this order already exists
+          const existingIndex = prev.findIndex(o => o.orderId === orderStatus.orderId);
+          
+          if (existingIndex >= 0) {
+            // Update existing order
+            const newOrders = [...prev];
+            newOrders[existingIndex] = enhancedStatus;
+            return newOrders;
+          } else {
+            // Add new order to the beginning
+            return [enhancedStatus, ...prev].slice(0, 10);
+          }
+        });
+        
+        // Show a toast notification for the update
+        const statusMessage = getStatusMessage(orderStatus.status);
+        
+        toast({
+          title: `Order Update: ${orderStatus.orderId}`,
+          description: orderStatus.message || statusMessage,
+          variant: orderStatus.status === 'failed' ? 'destructive' : 'default',
+        });
+        
+        // If the order was successfully placed, reset checkout progress
+        if (orderStatus.status === 'confirmed' || orderStatus.status === 'delivered') {
+          setCheckoutInProgress(false);
+        }
+      } catch (e) {
+        console.error("Error handling order update:", e);
+      }
+    };
+    
+    // Helper function to get a readable status message
+    const getStatusMessage = (status) => {
+      switch(status) {
+        case 'confirmed': return 'Your order has been confirmed!';
+        case 'preparing': return 'Your order is being prepared.';
+        case 'on_the_way': return 'Your order is on the way!';
+        case 'delivered': return 'Your order has been delivered!';
+        case 'failed': return 'There was an issue with your order.';
+        default: return 'Order status updated.';
+      }
+    };
+    
+    // Set up event listeners with both methods
+    window.addEventListener('order_status_update', (event) => handleOrderUpdate(event.detail));
+    
+    // Also listen for window messages from child windows
+    const handleWindowMessage = (event) => {
+      // Verify this is our message type
+      if (event.data && event.data.type === 'ORDER_STATUS_UPDATE') {
+        handleOrderUpdate(event.data.data);
+      }
+    };
+    
+    window.addEventListener('message', handleWindowMessage);
+    
+    // Clean up listeners
+    return () => {
+      window.removeEventListener('order_status_update', (event) => handleOrderUpdate(event.detail));
+      window.removeEventListener('message', handleWindowMessage);
+    };
   }, [toast]);
-  
+
   const handleCheckout = () => {
     if (!checkoutPlatform) {
       toast({
@@ -411,10 +489,10 @@ const CartPage = () => {
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>
-                            {new Date(order.timestamp).toLocaleString()}
+                            {order.formattedTime || new Date(order.timestamp).toLocaleString()}
                           </span>
                           <span className={`platform-${order.platform}`}>
-                            {platforms.find(p => p.id === order.platform)?.name}
+                            {platforms.find(p => p.id === order.platform)?.name || order.platform}
                           </span>
                         </div>
                         {order.deliveryTime && (

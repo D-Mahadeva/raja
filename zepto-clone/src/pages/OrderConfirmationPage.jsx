@@ -21,7 +21,7 @@ const OrderConfirmationPage = () => {
       // Get checkout data from localStorage (shared with the main app)
       const data = getPendingCheckout();
       
-      if (!data || data.platform !== 'zepto' || !orderId) {
+      if (!data || data.platform !== 'Blinkit' || !orderId) {
         setLoading(false);
         return;
       }
@@ -54,7 +54,7 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'preparing',
-        platform: 'zepto',
+        platform: 'Blinkit',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: '5 minutes',
@@ -71,7 +71,7 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'on_the_way',
-        platform: 'zepto',
+        platform: 'Blinkit',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: '2 minutes',
@@ -88,11 +88,11 @@ const OrderConfirmationPage = () => {
       updateOrderStatus({
         orderId: orderData.orderId,
         status: 'delivered',
-        platform: 'zepto',
+        platform: 'blinkit',
         timestamp: new Date().toISOString(),
         totalAmount: orderData.totalAmount,
         deliveryTime: 'Delivered',
-        message: 'Your order has been delivered. Thank you for shopping with Zepto!'
+        message: 'Your order has been delivered. Thank you for shopping with blinkit!'
       });
       
     }, 45000);
