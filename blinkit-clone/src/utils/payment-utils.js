@@ -48,7 +48,7 @@ export const verifyPayment = async (paymentData) => {
   }
 };
 
-// Enhanced function to initialize Razorpay and handle payments
+// Enhanced and fixed function to initialize Razorpay and handle payments
 export const loadRazorpay = (options, onSuccess, onError) => {
   console.log('Initializing Razorpay with options:', options);
   
@@ -57,11 +57,26 @@ export const loadRazorpay = (options, onSuccess, onError) => {
       throw new Error("Razorpay SDK is not loaded. Make sure the script is included in your HTML.");
     }
     
+    // Create flag to track if success callback has been called
+    let successCallbackCalled = false;
+    
+    // Create wrapper function to prevent duplicate calls
+    const handleSuccessOnce = (response) => {
+      if (successCallbackCalled) {
+        console.log('Success callback already called, ignoring duplicate');
+        return;
+      }
+      
+      successCallbackCalled = true;
+      console.log('Calling success callback with response:', response);
+      onSuccess(response);
+    };
+    
     const rzp = new window.Razorpay(options);
     
     // Set up event handlers for payment confirmation
     rzp.on('payment.success', async (response) => {
-      console.log('Razorpay payment success event triggered:', response);
+      console.log('Razorpay payment.success event triggered:', response);
       
       try {
         // Verify payment with backend
@@ -73,8 +88,8 @@ export const loadRazorpay = (options, onSuccess, onError) => {
         
         if (verification.success) {
           console.log('Payment verified successfully on server');
-          // Ensure we call onSuccess with the response
-          onSuccess(response);
+          // Use the wrapper function
+          handleSuccessOnce(response);
         } else {
           console.error('Payment verification failed on server');
           onError({ description: 'Payment verification failed on server' });
@@ -87,7 +102,7 @@ export const loadRazorpay = (options, onSuccess, onError) => {
     
     // Set up error handler
     rzp.on('payment.error', (response) => {
-      console.error('Razorpay payment error event triggered:', response);
+      console.error('Razorpay payment.error event triggered:', response);
       onError(response);
     });
     
@@ -98,10 +113,21 @@ export const loadRazorpay = (options, onSuccess, onError) => {
     
     // Register a global handler as a backup
     window.onRazorpayPaymentSuccess = async (response) => {
-      console.log('Global payment success handler called:', response);
+      console.log('Global onRazorpayPaymentSuccess handler called:', response);
+      
       try {
-        if (verification.success) {
-          onSuccess(response);
+        // Verify payment with backend here too
+        const verification = await verifyPayment({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature
+        });
+        
+        if (verification && verification.success) {
+          // Use the wrapper function
+          handleSuccessOnce(response);
+        } else {
+          console.error('Payment verification failed in global handler');
         }
       } catch (error) {
         console.error('Error in global success handler:', error);

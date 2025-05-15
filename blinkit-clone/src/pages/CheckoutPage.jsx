@@ -1,4 +1,4 @@
-// blinkit-clone/src/pages/CheckoutPage.jsx - Fixed version with improved payment handling
+// Fixed version of CheckoutPage.jsx with improved payment handling
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -45,6 +45,29 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState('online');
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [razorpayInstance, setRazorpayInstance] = useState(null);
+
+  // Flag to track if component is mounted (for safe state updates)
+  const isMounted = React.useRef(true);
+  
+  useEffect(() => {
+    // Set up mounted flag
+    isMounted.current = true;
+    
+    // Cleanup function to set mounted flag to false
+    return () => {
+      isMounted.current = false;
+      
+      // If Razorpay instance exists when component unmounts, close it
+      if (razorpayInstance) {
+        try {
+          razorpayInstance.close();
+        } catch (err) {
+          console.error("Error closing Razorpay instance:", err);
+        }
+      }
+    };
+  }, [razorpayInstance]);
   
   useEffect(() => {
     // Check if we're already supposed to be on the confirmation page
@@ -101,7 +124,9 @@ const CheckoutPage = () => {
       if (retryCount < 5) {
         console.log(`Retrying in ${(retryCount + 1) * 500}ms...`);
         setTimeout(() => {
-          setRetryCount(prevCount => prevCount + 1);
+          if (isMounted.current) {
+            setRetryCount(prevCount => prevCount + 1);
+          }
         }, (retryCount + 1) * 500);
         return;
       }
@@ -140,12 +165,16 @@ const CheckoutPage = () => {
         
         // Navigate to confirmation page with a small delay to ensure data is saved
         setTimeout(() => {
-          navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+          if (isMounted.current) {
+            navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+          }
         }, 500);
       } catch (error) {
         console.error("Error handling COD payment:", error);
-        setPaymentInitiated(false);
-        setError("Failed to place order. Please try again.");
+        if (isMounted.current) {
+          setPaymentInitiated(false);
+          setError("Failed to place order. Please try again.");
+        }
       }
     } else {
       try {
@@ -174,19 +203,21 @@ const CheckoutPage = () => {
           modal: {
             ondismiss: () => {
               console.log("Razorpay modal dismissed by user");
-              setPaymentInitiated(false);
-              
-              // Update status as payment cancelled
-              updateOrderStatus({
-                orderId: checkoutData.orderId,
-                status: 'pending',
-                platform: 'blinkit',
-                timestamp: new Date().toISOString(),
-                totalAmount: checkoutData.totalAmount,
-                message: 'Payment was cancelled. Please try again.',
-                paymentMethod: 'online',
-                address: address
-              });
+              if (isMounted.current) {
+                setPaymentInitiated(false);
+                
+                // Update status as payment cancelled
+                updateOrderStatus({
+                  orderId: checkoutData.orderId,
+                  status: 'pending',
+                  platform: 'blinkit',
+                  timestamp: new Date().toISOString(),
+                  totalAmount: checkoutData.totalAmount,
+                  message: 'Payment was cancelled. Please try again.',
+                  paymentMethod: 'online',
+                  address: address
+                });
+              }
             }
           }
         };
@@ -194,12 +225,8 @@ const CheckoutPage = () => {
         const handlePaymentSuccess = (paymentResponse) => {
           console.log("Payment success handler called with response:", paymentResponse);
           
-          // Prevent duplicate processing
-          if (!paymentInitiated) {
-            console.log("Ignoring duplicate success callback");
-            return;
-          }
-          
+          // This function may be called multiple times from different event handlers
+          // We need to ensure state transitions happen only once
           try {
             // Create order status record with all necessary information
             const orderStatusData = {
@@ -222,57 +249,63 @@ const CheckoutPage = () => {
             
             // Add a small delay to ensure data is saved before navigation
             setTimeout(() => {
-              // Set payment initiated to false to prevent duplicate processing
-              setPaymentInitiated(false);
-              
-              // Navigate to confirmation page
-              console.log("Navigating to order confirmation page");
-              navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
-            }, 500);
+              if (isMounted.current) {
+                // Set payment initiated to false to prevent duplicate processing
+                setPaymentInitiated(false);
+                
+                // Navigate to confirmation page
+                console.log("Navigating to order confirmation page");
+                navigate(`/order-confirmation?orderId=${checkoutData.orderId}`);
+              }
+            }, 800); // Increased delay to ensure data saving completes
           } catch (err) {
             console.error("Error in payment success handler:", err);
-            setPaymentInitiated(false);
-            setError("Error processing successful payment. Please contact support.");
+            if (isMounted.current) {
+              setPaymentInitiated(false);
+              setError("Error processing successful payment. Please contact support.");
+            }
           }
         };
         
         const handlePaymentError = (error) => {
           console.error("Payment error:", error);
           
-          // Payment failure
-          setPaymentInitiated(false);
-          
-          updateOrderStatus({
-            orderId: checkoutData.orderId,
-            status: 'failed',
-            platform: 'blinkit',
-            timestamp: new Date().toISOString(),
-            totalAmount: checkoutData.totalAmount,
-            message: 'Payment failed. Please try again.',
-            paymentMethod: 'online',
-            error: error.description || 'Unknown error',
-            address: address
-          });
-          
-          setError('Payment failed: ' + (error.description || 'Unknown error'));
+          if (isMounted.current) {
+            // Payment failure
+            setPaymentInitiated(false);
+            
+            updateOrderStatus({
+              orderId: checkoutData.orderId,
+              status: 'failed',
+              platform: 'blinkit',
+              timestamp: new Date().toISOString(),
+              totalAmount: checkoutData.totalAmount,
+              message: 'Payment failed. Please try again.',
+              paymentMethod: 'online',
+              error: error.description || 'Unknown error',
+              address: address
+            });
+            
+            setError('Payment failed: ' + (error.description || 'Unknown error'));
+          }
         };
         
-        // Set up global handler as a backup
-        window.onRazorpayPaymentSuccess = (response) => {
-          console.log("Global payment success handler called:", response);
-          handlePaymentSuccess(response);
-        };
-        
-        // Initialize Razorpay
-        loadRazorpay(
+        // Initialize Razorpay with proper success/error handling
+        const rzpInstance = loadRazorpay(
           options,
           handlePaymentSuccess,
           handlePaymentError
         );
+        
+        // Store the instance for cleanup
+        setRazorpayInstance(rzpInstance);
+        
       } catch (error) {
         console.error('Payment initialization error:', error);
-        setPaymentInitiated(false);
-        setError('Payment initialization failed: ' + error.message);
+        if (isMounted.current) {
+          setPaymentInitiated(false);
+          setError('Payment initialization failed: ' + error.message);
+        }
       }
     }
   };
