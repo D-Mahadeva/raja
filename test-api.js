@@ -6,7 +6,7 @@ const testAPI = async () => {
   
   const urls = [
     'http://localhost:5000/api/health',
-    'http://localhost:5000/api/products',
+    'https://api.themahadeva.live',
     'http://localhost:5000/api/debug',
     `http://${process.env.HOSTNAME || 'localhost'}:5000/api/health`
   ];

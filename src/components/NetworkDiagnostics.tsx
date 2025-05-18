@@ -55,7 +55,7 @@ const NetworkDiagnostics = () => {
     const urls = [
       'http://localhost:5000/api/health',
       'http://127.0.0.1:5000/api/health',
-      'http://localhost:5000/api/products',
+      'https://api.themahadeva.live',
       'http://127.0.0.1:5000/api/products',
       'http://localhost:3000/api/health',
       'http://localhost:8080/api/health',

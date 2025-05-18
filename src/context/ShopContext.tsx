@@ -208,9 +208,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try multiple possible API URLs
       const possibleUrls = [
         import.meta.env.VITE_API_URL,
-        'http://localhost:5000/api/products',
-        'http://127.0.0.1:5000/api/products',
-        `http://${window.location.hostname}:5000/api/products`
+        'https://api.themahadeva.live',
+       
       ];
 
       console.log("Trying the following API URLs:", possibleUrls);
