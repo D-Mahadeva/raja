@@ -1,4 +1,4 @@
-// Enhanced checkout-bridge.js with improved window communication and data persistence
+// src/lib/checkout-bridge.js - Enhanced to better handle platform-specific checkouts
 
 /**
  * Formats cart data to be shared between applications
@@ -33,6 +33,11 @@ export const formatCheckoutData = (cartItems, platform) => {
         category: item.product.category
       };
     });
+  
+  // Check if we have any items after filtering
+  if (formattedItems.length === 0) {
+    throw new Error(`No items available for ${platform}`);
+  }
   
   const data = {
     platform,

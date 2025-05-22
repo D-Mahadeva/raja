@@ -1,4 +1,4 @@
-// src/pages/CartPage.tsx
+// src/pages/CartPage.tsx - Fixed export statement
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { useShop, Platform, CartItem as CartItemType } from '@/context/ShopConte
 import Header from '@/components/Header';
 import CartItem from '@/components/CartItem';
 import PriceComparison from '@/components/PriceComparison';
+import UnavailableProductsSection from '@/components/UnavailableProductsSection';
 import { ArrowLeft, ShoppingCart, ArrowRight, Filter, X, TagIcon, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -309,6 +310,11 @@ const CartPage = () => {
                   )}
                 </div>
               </div>
+              
+              {/* Add the Unavailable Products Section here */}
+              {checkoutPlatform && (
+                <UnavailableProductsSection selectedPlatform={checkoutPlatform} />
+              )}
               
               {/* Platform sections */}
               <AnimatePresence>
